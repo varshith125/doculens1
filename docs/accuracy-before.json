@@ -1,0 +1,933 @@
+{
+  "fixture": "Fictional synthetic document; DMY printed dates",
+  "expected": {
+    "surname": "EXAMPLE",
+    "given_names": "TEST PERSON",
+    "document_number": "A1234567",
+    "date_of_birth": "1990-04-03",
+    "date_of_issue": "2020-06-15",
+    "date_of_expiry": "2030-06-14"
+  },
+  "cases": [
+    {
+      "case": "clear",
+      "correct": 5,
+      "total": 6,
+      "matches": {
+        "surname": true,
+        "given_names": true,
+        "document_number": true,
+        "date_of_birth": false,
+        "date_of_issue": true,
+        "date_of_expiry": true
+      },
+      "fields": {
+        "surname": "EXAMPLE",
+        "given_names": "TEST PERSON",
+        "document_number": "A1234567",
+        "date_of_issue": "2020-06-15",
+        "date_of_expiry": "2030-06-14"
+      },
+      "elapsed_ms": 3395,
+      "ocr_lines": [
+        {
+          "text": "PASSPORT - FICTIONAL TEST ONLY",
+          "confidence": 0.98512,
+          "bounding_box": [
+            [
+              42.0,
+              30.0
+            ],
+            [
+              542.0,
+              31.0
+            ],
+            [
+              542.0,
+              60.0
+            ],
+            [
+              42.0,
+              59.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "SURNAME/NOM",
+          "confidence": 0.99909,
+          "bounding_box": [
+            [
+              43.0,
+              107.0
+            ],
+            [
+              214.0,
+              107.0
+            ],
+            [
+              214.0,
+              131.0
+            ],
+            [
+              43.0,
+              131.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "GIVEN NAMES",
+          "confidence": 0.99604,
+          "bounding_box": [
+            [
+              439.0,
+              108.0
+            ],
+            [
+              571.0,
+              108.0
+            ],
+            [
+              571.0,
+              130.0
+            ],
+            [
+              439.0,
+              130.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "EXAMPLE",
+          "confidence": 0.99994,
+          "bounding_box": [
+            [
+              44.0,
+              138.0
+            ],
+            [
+              166.0,
+              138.0
+            ],
+            [
+              166.0,
+              165.0
+            ],
+            [
+              44.0,
+              165.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "TEST PERSON",
+          "confidence": 0.99843,
+          "bounding_box": [
+            [
+              439.0,
+              138.0
+            ],
+            [
+              623.0,
+              138.0
+            ],
+            [
+              623.0,
+              165.0
+            ],
+            [
+              439.0,
+              165.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "PASSPORT NO. A1234567",
+          "confidence": 0.98959,
+          "bounding_box": [
+            [
+              44.0,
+              226.0
+            ],
+            [
+              336.0,
+              226.0
+            ],
+            [
+              336.0,
+              249.0
+            ],
+            [
+              44.0,
+              249.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "D.O.B. 03 / 04 / 1990",
+          "confidence": 0.9183,
+          "bounding_box": [
+            [
+              42.0,
+              302.0
+            ],
+            [
+              320.0,
+              303.0
+            ],
+            [
+              320.0,
+              333.0
+            ],
+            [
+              42.0,
+              331.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF ISSUE:15-06-2020",
+          "confidence": 0.97484,
+          "bounding_box": [
+            [
+              44.0,
+              386.0
+            ],
+            [
+              387.0,
+              386.0
+            ],
+            [
+              387.0,
+              410.0
+            ],
+            [
+              44.0,
+              410.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF EXPIRY: 14.06.2030",
+          "confidence": 0.98536,
+          "bounding_box": [
+            [
+              44.0,
+              465.0
+            ],
+            [
+              376.0,
+              465.0
+            ],
+            [
+              376.0,
+              489.0
+            ],
+            [
+              44.0,
+              489.0
+            ]
+          ],
+          "side": "front"
+        }
+      ]
+    },
+    {
+      "case": "mild_blur_sigma_0_8",
+      "correct": 5,
+      "total": 6,
+      "matches": {
+        "surname": true,
+        "given_names": true,
+        "document_number": true,
+        "date_of_birth": false,
+        "date_of_issue": true,
+        "date_of_expiry": true
+      },
+      "fields": {
+        "surname": "EXAMPLE",
+        "given_names": "TEST PERSON",
+        "document_number": "A1234567",
+        "date_of_issue": "2020-06-15",
+        "date_of_expiry": "2030-06-14"
+      },
+      "elapsed_ms": 1441,
+      "ocr_lines": [
+        {
+          "text": "PASSPORT - FICTIONAL TEST ONLY",
+          "confidence": 0.9805,
+          "bounding_box": [
+            [
+              43.0,
+              31.0
+            ],
+            [
+              542.0,
+              31.0
+            ],
+            [
+              542.0,
+              60.0
+            ],
+            [
+              43.0,
+              60.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "SURNAME / NOM",
+          "confidence": 0.93025,
+          "bounding_box": [
+            [
+              41.0,
+              103.0
+            ],
+            [
+              215.0,
+              105.0
+            ],
+            [
+              215.0,
+              133.0
+            ],
+            [
+              40.0,
+              131.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "GIVEN NAMES",
+          "confidence": 0.99799,
+          "bounding_box": [
+            [
+              437.0,
+              106.0
+            ],
+            [
+              572.0,
+              106.0
+            ],
+            [
+              572.0,
+              130.0
+            ],
+            [
+              437.0,
+              130.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "EXAMPLE",
+          "confidence": 0.99996,
+          "bounding_box": [
+            [
+              43.0,
+              135.0
+            ],
+            [
+              165.0,
+              135.0
+            ],
+            [
+              165.0,
+              165.0
+            ],
+            [
+              43.0,
+              165.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "TEST PERSON",
+          "confidence": 0.99907,
+          "bounding_box": [
+            [
+              438.0,
+              138.0
+            ],
+            [
+              623.0,
+              138.0
+            ],
+            [
+              623.0,
+              165.0
+            ],
+            [
+              438.0,
+              165.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "PASSPORT NO. A1234567",
+          "confidence": 0.97459,
+          "bounding_box": [
+            [
+              41.0,
+              223.0
+            ],
+            [
+              337.0,
+              224.0
+            ],
+            [
+              337.0,
+              251.0
+            ],
+            [
+              41.0,
+              249.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "D.O.B. 03 / 04 / 1990",
+          "confidence": 0.91262,
+          "bounding_box": [
+            [
+              42.0,
+              303.0
+            ],
+            [
+              320.0,
+              303.0
+            ],
+            [
+              320.0,
+              333.0
+            ],
+            [
+              42.0,
+              333.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF ISSUE: 15-06-2020",
+          "confidence": 0.97066,
+          "bounding_box": [
+            [
+              43.0,
+              384.0
+            ],
+            [
+              388.0,
+              384.0
+            ],
+            [
+              388.0,
+              411.0
+            ],
+            [
+              43.0,
+              411.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF EXPIRY: 14.06.2030",
+          "confidence": 0.98994,
+          "bounding_box": [
+            [
+              43.0,
+              465.0
+            ],
+            [
+              377.0,
+              465.0
+            ],
+            [
+              377.0,
+              490.0
+            ],
+            [
+              43.0,
+              490.0
+            ]
+          ],
+          "side": "front"
+        }
+      ]
+    },
+    {
+      "case": "blur_sigma_1_2",
+      "correct": 5,
+      "total": 6,
+      "matches": {
+        "surname": true,
+        "given_names": true,
+        "document_number": true,
+        "date_of_birth": false,
+        "date_of_issue": true,
+        "date_of_expiry": true
+      },
+      "fields": {
+        "surname": "EXAMPLE",
+        "given_names": "TEST PERSON",
+        "document_number": "A1234567",
+        "date_of_issue": "2020-06-15",
+        "date_of_expiry": "2030-06-14"
+      },
+      "elapsed_ms": 1274,
+      "ocr_lines": [
+        {
+          "text": "PASSPORT - FICTIONAL TEST ONLY",
+          "confidence": 0.96934,
+          "bounding_box": [
+            [
+              41.0,
+              29.0
+            ],
+            [
+              543.0,
+              29.0
+            ],
+            [
+              543.0,
+              62.0
+            ],
+            [
+              41.0,
+              61.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "SURNAME / NOM",
+          "confidence": 0.95923,
+          "bounding_box": [
+            [
+              41.0,
+              105.0
+            ],
+            [
+              215.0,
+              105.0
+            ],
+            [
+              215.0,
+              133.0
+            ],
+            [
+              41.0,
+              133.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "GIVEN NAMES",
+          "confidence": 0.99935,
+          "bounding_box": [
+            [
+              435.0,
+              104.0
+            ],
+            [
+              572.0,
+              104.0
+            ],
+            [
+              572.0,
+              131.0
+            ],
+            [
+              435.0,
+              131.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "EXAMPLE",
+          "confidence": 0.99998,
+          "bounding_box": [
+            [
+              42.0,
+              135.0
+            ],
+            [
+              166.0,
+              135.0
+            ],
+            [
+              166.0,
+              165.0
+            ],
+            [
+              42.0,
+              165.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "TEST PERSON",
+          "confidence": 0.99811,
+          "bounding_box": [
+            [
+              439.0,
+              137.0
+            ],
+            [
+              623.0,
+              137.0
+            ],
+            [
+              623.0,
+              165.0
+            ],
+            [
+              439.0,
+              165.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "PASSPORT NO. A1234567",
+          "confidence": 0.9745,
+          "bounding_box": [
+            [
+              43.0,
+              224.0
+            ],
+            [
+              337.0,
+              224.0
+            ],
+            [
+              337.0,
+              251.0
+            ],
+            [
+              43.0,
+              251.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "D.O.B. 03 / 04 / 1990",
+          "confidence": 0.91545,
+          "bounding_box": [
+            [
+              42.0,
+              303.0
+            ],
+            [
+              320.0,
+              303.0
+            ],
+            [
+              320.0,
+              333.0
+            ],
+            [
+              42.0,
+              333.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF ISSUE: 15-06-2020",
+          "confidence": 0.96657,
+          "bounding_box": [
+            [
+              42.0,
+              382.0
+            ],
+            [
+              388.0,
+              384.0
+            ],
+            [
+              388.0,
+              412.0
+            ],
+            [
+              42.0,
+              410.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF EXPIRY: 14.06.2030",
+          "confidence": 0.98195,
+          "bounding_box": [
+            [
+              42.0,
+              464.0
+            ],
+            [
+              378.0,
+              464.0
+            ],
+            [
+              378.0,
+              491.0
+            ],
+            [
+              42.0,
+              491.0
+            ]
+          ],
+          "side": "front"
+        }
+      ]
+    },
+    {
+      "case": "low_resolution",
+      "correct": 5,
+      "total": 6,
+      "matches": {
+        "surname": true,
+        "given_names": true,
+        "document_number": true,
+        "date_of_birth": false,
+        "date_of_issue": true,
+        "date_of_expiry": true
+      },
+      "fields": {
+        "surname": "EXAMPLE",
+        "given_names": "TEST PERSON",
+        "document_number": "A1234567",
+        "date_of_issue": "2020-06-15",
+        "date_of_expiry": "2030-06-14"
+      },
+      "elapsed_ms": 1322,
+      "ocr_lines": [
+        {
+          "text": "PASSPORT - FICTIONAL TEST ONLY",
+          "confidence": 0.99037,
+          "bounding_box": [
+            [
+              26.0,
+              19.0
+            ],
+            [
+              325.0,
+              19.0
+            ],
+            [
+              325.0,
+              36.0
+            ],
+            [
+              26.0,
+              36.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "SURNAME / NOM",
+          "confidence": 0.95473,
+          "bounding_box": [
+            [
+              25.0,
+              63.0
+            ],
+            [
+              129.0,
+              63.0
+            ],
+            [
+              129.0,
+              79.0
+            ],
+            [
+              25.0,
+              79.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "GIVEN NAMES",
+          "confidence": 0.99772,
+          "bounding_box": [
+            [
+              262.0,
+              64.0
+            ],
+            [
+              343.0,
+              64.0
+            ],
+            [
+              343.0,
+              78.0
+            ],
+            [
+              262.0,
+              78.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "EXAMPLE",
+          "confidence": 0.99997,
+          "bounding_box": [
+            [
+              25.0,
+              82.0
+            ],
+            [
+              100.0,
+              82.0
+            ],
+            [
+              100.0,
+              100.0
+            ],
+            [
+              25.0,
+              100.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "TEST PERSON",
+          "confidence": 0.99826,
+          "bounding_box": [
+            [
+              263.0,
+              83.0
+            ],
+            [
+              374.0,
+              83.0
+            ],
+            [
+              374.0,
+              99.0
+            ],
+            [
+              263.0,
+              99.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "PASSPORT NO. A1234567",
+          "confidence": 0.99699,
+          "bounding_box": [
+            [
+              26.0,
+              135.0
+            ],
+            [
+              202.0,
+              135.0
+            ],
+            [
+              202.0,
+              150.0
+            ],
+            [
+              26.0,
+              150.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "D.O.B. 03 / 04 / 1990",
+          "confidence": 0.91154,
+          "bounding_box": [
+            [
+              25.0,
+              182.0
+            ],
+            [
+              192.0,
+              182.0
+            ],
+            [
+              192.0,
+              200.0
+            ],
+            [
+              25.0,
+              200.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF ISSUE: 15-06-2020",
+          "confidence": 0.97798,
+          "bounding_box": [
+            [
+              26.0,
+              231.0
+            ],
+            [
+              233.0,
+              231.0
+            ],
+            [
+              233.0,
+              246.0
+            ],
+            [
+              26.0,
+              246.0
+            ]
+          ],
+          "side": "front"
+        },
+        {
+          "text": "DATE OF EXPIRY: 14.06.2030",
+          "confidence": 0.99533,
+          "bounding_box": [
+            [
+              26.0,
+              279.0
+            ],
+            [
+              226.0,
+              279.0
+            ],
+            [
+              226.0,
+              294.0
+            ],
+            [
+              26.0,
+              294.0
+            ]
+          ],
+          "side": "front"
+        }
+      ]
+    }
+  ]
+}

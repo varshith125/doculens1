@@ -1,0 +1,156 @@
+{
+  "date": "2026-10-26",
+  "fixture": "Generated 1400x940 JPEG, public fictional ICAO sample; no real IDs",
+  "method": "In-process ASGI API; real RapidOCR/ONNX CPU; 20 ms polling; one OCR worker; no network latency",
+  "hardware": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "logical_cpus": 12,
+    "ram_gb": 15.7
+  },
+  "versions": {
+    "rapidocr": "3.10.0",
+    "onnxruntime": "1.31.0",
+    "opencv-python-headless": "4.14.0.94",
+    "fastapi": "0.162.0"
+  },
+  "cold_model_start_ms": 3758.61,
+  "runs": 10,
+  "p50_ms": 1777.31,
+  "p95_ms": 2060.35,
+  "mean_ms": 1824.36,
+  "process_rss_mb": 165.84,
+  "two_client_four_requests_ms": [
+    1831.61,
+    3594.57,
+    3575.81,
+    3565.32
+  ],
+  "samples": [
+    {
+      "request_ms": 2157.32,
+      "image_decode": 12.59,
+      "detection_and_correction": 64.04,
+      "ocr": 2050.43,
+      "image_encoding": 5.35,
+      "field_extraction": 11.19,
+      "processing_total": 2144.25,
+      "queue_wait": 0.0,
+      "total": 2140.0
+    },
+    {
+      "request_ms": 1756.12,
+      "image_decode": 17.1,
+      "detection_and_correction": 65.9,
+      "ocr": 1644.77,
+      "image_encoding": 4.86,
+      "field_extraction": 6.58,
+      "processing_total": 1739.3,
+      "queue_wait": 0.0,
+      "total": 1750.0
+    },
+    {
+      "request_ms": 1785.95,
+      "image_decode": 11.05,
+      "detection_and_correction": 65.21,
+      "ocr": 1681.67,
+      "image_encoding": 5.52,
+      "field_extraction": 7.69,
+      "processing_total": 1771.24,
+      "queue_wait": 0.0,
+      "total": 1781.0
+    },
+    {
+      "request_ms": 1941.83,
+      "image_decode": 13.52,
+      "detection_and_correction": 79.79,
+      "ocr": 1814.98,
+      "image_encoding": 5.3,
+      "field_extraction": 7.03,
+      "processing_total": 1920.7,
+      "queue_wait": 0.0,
+      "total": 1922.0
+    },
+    {
+      "request_ms": 1777.28,
+      "image_decode": 11.43,
+      "detection_and_correction": 61.82,
+      "ocr": 1677.98,
+      "image_encoding": 5.07,
+      "field_extraction": 8.33,
+      "processing_total": 1764.73,
+      "queue_wait": 0.0,
+      "total": 1750.0
+    },
+    {
+      "request_ms": 1750.88,
+      "image_decode": 11.08,
+      "detection_and_correction": 64.29,
+      "ocr": 1648.13,
+      "image_encoding": 5.49,
+      "field_extraction": 7.36,
+      "processing_total": 1736.44,
+      "queue_wait": 0.0,
+      "total": 1735.0
+    },
+    {
+      "request_ms": 1756.24,
+      "image_decode": 12.6,
+      "detection_and_correction": 67.58,
+      "ocr": 1648.93,
+      "image_encoding": 6.72,
+      "field_extraction": 7.83,
+      "processing_total": 1743.75,
+      "queue_wait": 0.0,
+      "total": 1750.0
+    },
+    {
+      "request_ms": 1749.5,
+      "image_decode": 10.73,
+      "detection_and_correction": 65.62,
+      "ocr": 1645.63,
+      "image_encoding": 5.53,
+      "field_extraction": 9.21,
+      "processing_total": 1736.79,
+      "queue_wait": 0.0,
+      "total": 1734.0
+    },
+    {
+      "request_ms": 1777.34,
+      "image_decode": 12.12,
+      "detection_and_correction": 64.36,
+      "ocr": 1675.94,
+      "image_encoding": 5.47,
+      "field_extraction": 7.19,
+      "processing_total": 1765.16,
+      "queue_wait": 0.0,
+      "total": 1765.0
+    },
+    {
+      "request_ms": 1791.14,
+      "image_decode": 11.47,
+      "detection_and_correction": 65.2,
+      "ocr": 1689.55,
+      "image_encoding": 5.43,
+      "field_extraction": 7.08,
+      "processing_total": 1778.81,
+      "queue_wait": 0.0,
+      "total": 1781.0
+    }
+  ],
+  "observed": {
+    "ocr_lines": 11,
+    "mrz_detected": true,
+    "mrz_checksum_valid": false,
+    "field_names": [
+      "surname",
+      "given_names",
+      "document_number",
+      "nationality",
+      "date_of_birth",
+      "date_of_expiry",
+      "sex",
+      "issuing_country"
+    ]
+  }
+}

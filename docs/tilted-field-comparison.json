@@ -1,0 +1,33 @@
+{
+  "fixture": "Generated fictional document; fixed expected values from rendering source, not OCR output. Same OCR observations before/after; only field geometry changed.",
+  "cases": [
+    {
+      "scale": 0.45,
+      "tilt_degrees": 7,
+      "expected_fields": 6,
+      "before_exact_fields": 6,
+      "after_exact_fields": 6
+    },
+    {
+      "scale": 0.45,
+      "tilt_degrees": 15,
+      "expected_fields": 6,
+      "before_exact_fields": 5,
+      "after_exact_fields": 6
+    },
+    {
+      "scale": 0.4,
+      "tilt_degrees": 11,
+      "expected_fields": 6,
+      "before_exact_fields": 5,
+      "after_exact_fields": 6
+    },
+    {
+      "scale": 0.5,
+      "tilt_degrees": 18,
+      "expected_fields": 6,
+      "before_exact_fields": 5,
+      "after_exact_fields": 6
+    }
+  ]
+}

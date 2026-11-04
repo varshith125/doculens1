@@ -30,6 +30,10 @@ Owner = Annotated[str, Depends(require_owner)]
 def create_app(settings: Settings | None = None, ocr: OCRService | None = None) -> FastAPI:
     config = settings or get_settings()
     engine = ocr or OCRService(
+        ocr_models_dir=config.ocr_models_dir,
+        medium_det_path=config.ocr_medium_det_path,
+        medium_rec_path=config.ocr_medium_rec_path,
+        fast_text=config.ocr_fast_text,
         arabic_model_path=config.arabic_model_path,
         arabic_dictionary_path=config.arabic_dictionary_path,
     )
@@ -45,6 +49,9 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
         try:
             await anyio.to_thread.run_sync(engine.warmup)
         except Exception:
+            if config.ocr_models_dir or config.ocr_medium_det_path or config.ocr_medium_rec_path:
+                application.state.executor.shutdown(wait=False, cancel_futures=True)
+                raise
             # Readiness exposes model failure without exposing internal errors or filesystem paths.
             pass
 
@@ -83,6 +90,7 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
         RequestGuard,
         max_bytes=(config.max_upload_mb * 2 + 1) * 1024**2,
         allowed_origins=config.allowed_origins,
+        require_https=config.require_https,
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.allowed_hosts)
 
@@ -148,11 +156,12 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
                 is_jpeg = data.startswith(b"\xff\xd8\xff")
                 is_png = data.startswith(b"\x89PNG\r\n\x1a\n")
                 is_webp = data.startswith(b"RIFF") and data[8:12] == b"WEBP"
-                if not (is_jpeg or is_png or is_webp):
-                    raise HTTPException(415, "Upload a valid JPEG, PNG, or WebP image.")
+                is_pdf = data.startswith(b"%PDF-")
+                if not (is_jpeg or is_png or is_webp or is_pdf):
+                    raise HTTPException(415, "Upload a valid JPEG, PNG, WebP, or single-page PDF.")
                 uploads[side] = data
             try:
-                job = store.create(owner)
+                job = store.create(owner, uploads)
             except CapacityError as exc:
                 raise HTTPException(429, str(exc)) from None
             app.state.executor.submit(run_scan, job, uploads, parsed, store, engine)
@@ -168,6 +177,40 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
             raise HTTPException(404, "Scan not found or expired. Upload the document again.")
         return job
 
+    @app.post("/api/v1/extract")
+    async def extract(
+        request: Request,
+        owner: Owner,
+        file: Annotated[UploadFile, File()],
+        options: Annotated[str, Form()] = "{}",
+    ):
+        """Synchronous PRD adapter over the same bounded, cancellable scan worker."""
+        queued = await scan(owner, file, None, options)
+        scan_id = queued["scan_id"]
+        try:
+            async with asyncio.timeout(300):
+                while True:
+                    if await request.is_disconnected():
+                        raise HTTPException(499, "Extraction cancelled.")
+                    with store.lock:
+                        job = owned_job(scan_id, owner)
+                        if job.status == "failed":
+                            raise HTTPException(422, job.error or "Document could not be read.")
+                        if job.result:
+                            result = job.result.model_dump()
+                            if (not result["ocr_lines"]
+                                    and not any(f["value"] for f in result["fields"].values())
+                                    and not any(f["value"] for f in result["other_fields"])):
+                                raise HTTPException(422, "No readable document fields found. Upload a clearer image.")
+                            result["document_type"] = result["document_type"].upper()
+                            result["images"] = []  # This one-shot response does not retain previews.
+                            return result
+                    await asyncio.sleep(0.1)
+        except TimeoutError:
+            raise HTTPException(504, "Extraction timed out. Try a clearer document image.") from None
+        finally:
+            store.delete(scan_id, owner)
+
     @app.get("/api/v1/scans/{scan_id}", response_model=JobResponse)
     def scan_status(scan_id: str, owner: Owner):
         with store.lock:
@@ -176,7 +219,7 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
                 "scan_id": job.scan_id,
                 "status": job.status,
                 "stage": job.stage,
-                "result": job.result.model_dump() if job.result else None,
+                "result": job.result,
                 "error": job.error,
             }
 

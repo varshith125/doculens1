@@ -10,9 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { imageBlob, isAbort } from "@/services/api";
 import { useObjectUrl } from "@/hooks/useObjectUrl";
-import type { ScanResult, Side, SideOptions } from "@/types/scan";
+import { useMotion } from "@/hooks/useMotion";
+import type { FieldValue, ScanResult, Side, SideOptions } from "@/types/scan";
 
 interface Props {
+  correctedPreview?: Blob | null;
+  isPdf?: boolean;
+  highlight?: FieldValue | null;
   original: string;
   result: ScanResult | null;
   side: Side;
@@ -30,7 +34,12 @@ export function DocumentViewer({
   busy,
   onRotate,
   onCrop,
+  isPdf,
+  highlight,
+  correctedPreview,
 }: Props) {
+  const motion = useMotion("highlight", highlight);
+  const scanMotion = useMotion("scan", busy);
   const [variant, setVariant] = useState<"corrected" | "original">("corrected");
   const [blob, setBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +53,11 @@ export function DocumentViewer({
     setError(null);
     setZoom(1);
     if (!scanId) {
+      setLoading(false);
+      return;
+    }
+    if (correctedPreview !== undefined) {
+      setBlob(correctedPreview);
       setLoading(false);
       return;
     }
@@ -63,12 +77,16 @@ export function DocumentViewer({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [scanId, side]);
+  }, [scanId, side, correctedPreview]);
   const showingCorrected = result && variant === "corrected" && corrected;
   const image = showingCorrected ? corrected : original;
   const metadata = result?.images.find((image) => image.side === side);
+  const boxes = highlight?.evidence.filter((item) => item.side === side && item.bounding_box
+      && (highlight.value_kind === "mrz" ? item.source === "mrz" : item.source === "visual"))
+    .map((item) => item.bounding_box!) ?? [];
+  useEffect(() => { if (highlight) setVariant("corrected"); }, [highlight]);
   return (
-    <div className="viewer">
+    <div className="viewer" ref={motion}>
       <div className="viewer-top">
         <div className="segmented" aria-label="Image comparison">
           <button
@@ -100,7 +118,9 @@ export function DocumentViewer({
           className="zoom-surface"
           style={{ width: `${zoom * 100}%`, minWidth: "100%" }}
         >
-          <img
+          {isPdf && !showingCorrected ? (
+            <p className="pdf-preview-note">PDF selected. Scan to render the page locally, then inspect the image or adjust its crop.</p>
+          ) : <div className="image-with-evidence"><img
             src={image}
             alt={
               showingCorrected
@@ -116,6 +136,12 @@ export function DocumentViewer({
                 : undefined,
             }}
           />
+          {showingCorrected && metadata && boxes.length > 0 && (
+            <svg className="evidence-overlay" viewBox={`0 0 ${metadata.width} ${metadata.height}`}
+              preserveAspectRatio="xMidYMid meet" aria-label="Selected field source location">
+              {boxes.map((box, index) => <polygon key={index} points={box.map((point) => point.join(",")).join(" ")} />)}
+            </svg>
+          )}</div>}
         </div>
         {loading && (
           <span className="preview-loading">
@@ -123,8 +149,8 @@ export function DocumentViewer({
           </span>
         )}
         {busy && (
-          <div className="scan-overlay">
-            <span className="scan-line" />
+          <div className="scan-overlay" ref={scanMotion}>
+            <span className="scan-line" style={{ animation: "none" }} />
           </div>
         )}
       </div>
@@ -173,7 +199,7 @@ export function DocumentViewer({
             <RotateCw size={16} />
             <span>Rotate</span>
           </Button>
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onCrop}>
+          <Button variant="ghost" size="sm" disabled={busy || isPdf} onClick={onCrop}>
             <Crop size={16} />
             <span>Adjust crop</span>
           </Button>

@@ -53,6 +53,18 @@ def test_checksum_failure_is_not_repaired():
     assert result.warnings
 
 
+def test_td3_optional_data_check_digit_can_be_cross_checked_without_changing_raw_mrz():
+    # Generate a populated optional field whose checksum is zero.
+    optional = "0" + "<" * 13
+    second = TD3[1][:28] + optional + check_digit(optional)
+    second += check_digit(second[:10] + second[13:20] + second[21:43])
+    raw = [TD3[0], second[:42] + "O" + second[43]]
+    result = parse_mrz(raw)
+    assert result.checksum_valid and result.corrections
+    assert result.raw_lines == raw
+    assert result.interpreted_lines == [TD3[0], second]
+
+
 def test_mrz_source_characters_and_spaces_are_preserved_for_display():
     source = [TD3[0].lower(), TD3[1][:10] + " " + TD3[1][10:]]
     result = parse_mrz(source)
@@ -71,8 +83,10 @@ def test_incomplete_mrz_preserves_adjacent_number_line_without_inventing_fields(
     result, evidence = detect_mrz(rows)
     assert result.raw_lines == source
     assert evidence == rows
-    assert result.fields == {}
-    assert result.checksum_valid is None
+    assert result.fields["surname"] == "ERIKSSON"
+    assert result.fields["given_names"] == "ANNA MARIA"
+    assert "document_number" not in result.fields
+    assert result.checksum_valid is False
     assert result.warnings
 
 
@@ -80,8 +94,14 @@ def test_incomplete_mrz_preserves_adjacent_number_line_without_inventing_fields(
 def test_incomplete_mrz_is_never_padded(lines):
     result = parse_mrz(lines)
     assert result.detected
-    assert result.fields == {}
-    assert result.checksum_valid is None
+    assert result.raw_lines == lines
+    assert not result.interpreted_lines
+    if lines[0].startswith("P<"):
+        assert result.fields["surname"] == "ERIKSSON"
+        assert result.checksum_valid is False
+    else:
+        assert result.fields == {}
+        assert result.checksum_valid is None
 
 
 def test_optional_td3_empty_check_digit_can_be_filler():

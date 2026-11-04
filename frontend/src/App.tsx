@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -30,6 +30,7 @@ import type {
   ScanOptions,
   Side,
   Uploads,
+  FieldValue,
 } from "@/types/scan";
 
 const initialOptions = (): ScanOptions => ({
@@ -54,15 +55,24 @@ export default function App() {
   } = useBackendHealth();
   const [helpOpen, setHelpOpen] = useState(false);
   const scanner = useScan();
+  const [highlight, setHighlight] = useState<{ scan: string; field: FieldValue } | null>(null);
   const frontUrl = useObjectUrl(files.front);
   const backUrl = useObjectUrl(files.back);
   const original = side === "front" ? frontUrl : backUrl;
+  const selectedPdf = files[side]?.type === "application/pdf";
+  const pdfPage = selectedPdf ? scanner.previews[side]?.original ?? null : null;
+  const pdfPageUrl = useObjectUrl(pdfPage);
+  const cropImage = selectedPdf ? pdfPageUrl : original;
 
   const changeFile = (target: Side, file: File | null) => {
     scanner.reset();
-    setFiles((previous) => ({ ...previous, [target]: file }));
+    setHighlight(null);
+    setFiles((previous) => target === "front"
+      ? { front: file, back: null }
+      : { ...previous, back: file });
     setOptions((previous) => ({
       ...previous,
+      ...(target === "front" ? { back: { rotation: 0 as Rotation, corners: null } } : {}),
       [target]: { rotation: 0, corners: null },
     }));
     setSide(file ? target : "front");
@@ -93,7 +103,22 @@ export default function App() {
     setFiles({ front: null, back: null });
     setOptions(initialOptions());
     setSide("front");
+    setHighlight(null);
+    setCropOpen(false);
+    setCompareOpen(false);
   };
+  useEffect(() => {
+    const discardDocument = () => {
+      setFiles({ front: null, back: null });
+      setOptions(initialOptions());
+      setHighlight(null);
+      setCropOpen(false);
+      setCompareOpen(false);
+      setSide("front");
+    };
+    window.addEventListener("pagehide", discardDocument);
+    return () => window.removeEventListener("pagehide", discardDocument);
+  }, []);
   const canScan = files.front && service?.ocr_ready && !scanner.busy;
   return (
     <div className="app-shell" ref={motionRoot}>
@@ -187,10 +212,13 @@ export default function App() {
                 Adjust the corners or rotation and scan again when needed.
               </p>
               <p>
-                Images are processed by this local backend and kept in memory
-                for up to {Math.round((service?.retention_seconds ?? 900) / 60)}{" "}
-                minutes. Clear a scan to delete it sooner. Downloaded exports
-                and clipboard contents remain under your control.
+                Each scan starts fresh. Uploaded images and extracted text are
+                processed in memory, without a disk cache or scan history. The server
+                releases them after the result and previews reach this page.
+                The current document stays in page memory until you replace it,
+                clear it or leave. Undelivered results expire
+                {" "}{service?.retention_seconds ?? 60} seconds after processing.
+                Downloaded exports and clipboard contents remain under your control.
               </p>
               <p>
                 OCR can misread characters. A passing MRZ checksum checks
@@ -324,13 +352,16 @@ export default function App() {
                   )}
                   {original && (
                     <DocumentViewer
-                      original={original}
+                      original={pdfPageUrl ?? original}
                       result={scanner.result}
+                      correctedPreview={scanner.previews[side]?.corrected ?? null}
                       side={side}
                       options={options[side]}
                       busy={scanner.busy}
                       onRotate={rotate}
                       onCrop={() => setCropOpen(true)}
+                      isPdf={selectedPdf && !pdfPageUrl}
+                      highlight={highlight?.scan === scanner.result?.scan_id ? highlight?.field : null}
                     />
                   )}
                   <details
@@ -439,7 +470,11 @@ export default function App() {
               {scanner.busy ? (
                 <Progress stage={scanner.stage} />
               ) : scanner.result ? (
-                <Results result={scanner.result} />
+                <Results key={scanner.result.scan_id} result={scanner.result} onHighlight={(field) => {
+                  setHighlight(field ? { scan: scanner.result!.scan_id, field } : null);
+                  const location = field?.evidence.find((item) => item.bounding_box);
+                  if (location) setSide(location.side);
+                }} />
               ) : (
                 <div className="results-empty">
                   <div className="empty-orbit">
@@ -532,9 +567,9 @@ export default function App() {
         <span>A little focus changes everything.</span>
         <span>Thoughtfully local.</span>
       </footer>
-      {cropOpen && original && (
+      {cropOpen && cropImage && (
         <CropEditor
-          image={original}
+          image={cropImage}
           initial={
             options[side].corners ??
             (scanner.result?.images.find((image) => image.side === side)

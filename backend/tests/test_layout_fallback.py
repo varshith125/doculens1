@@ -110,8 +110,8 @@ def test_middle_name_is_separate_and_full_name_is_never_split():
             row("Last Name: EXAMPLE", 0, 120),
         ]
     )["fields"]
-    assert fields["given_names"].value == "ALEX"
-    assert fields["given_names"].display_label == "First Name"
+    assert fields["first_name"].value == "ALEX"
+    assert fields["first_name"].display_label == "First Name"
     assert fields["middle_names"].value == "MORGAN"
     assert fields["middle_names"].display_label == "Middle Name"
     assert fields["surname"].value == "EXAMPLE"

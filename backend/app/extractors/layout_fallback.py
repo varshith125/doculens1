@@ -1,8 +1,8 @@
 """Conservative recovery for a recognizable Indian passport biodata layout.
 
 This is a candidate association, never document validation. It requires a country
-anchor, a partial passport MRZ, a printed given-name match, and aligned date/sex
-rows. It never completes missing characters or invents a hidden passport number.
+anchor, a partial passport MRZ, and aligned text/date/sex rows. Names are handled
+by labeled OCR or independent MRZ fallback, never by comparing their spellings.
 """
 
 import re
@@ -115,11 +115,18 @@ def indian_passport_candidates(
     other: list[FieldValue] = []
 
     def candidate(name: str, value: str | None, row: OCRLine, reason: str = "") -> FieldValue:
+        readings = [(row.text.strip(), row.confidence)] + [
+            (item.text.strip(), item.confidence) for item in row.observations
+        ]
+        selected_scores = [score for text, score in readings if text == value]
         return FieldValue(
             field_name=name,
             value=value,
+            observed_value=value if selected_scores else None,
+            display_value=value,
+            value_kind=("printed" if selected_scores else "mrz") if value is not None else "unresolved",
             status="uncertain",
-            confidence=row.confidence,
+            confidence=min(selected_scores) if selected_scores else row.confidence,
             source="layout",
             bounding_box=row.bounding_box,
             reason="Possible reading from the Indian passport layout; labels are unclear. "
@@ -127,41 +134,14 @@ def indian_passport_candidates(
             evidence=_evidence(row) + _evidence(mrz, "mrz"),
         )
 
-    observed_names = [(given_row.text.strip(), given_row.confidence)] + [
-        (o.text.strip(), o.confidence) for o in given_row.observations
-    ]
-    corroborated = [
-        text
-        for text, score in observed_names
-        if score >= 0.65
-        and re.fullmatch(r"[A-Za-z][A-Za-z '-]{2,}", text)
-        and match[2].startswith(re.sub(r"[ '-]", "<", text.upper()))
-    ]
-    fields["given_names"] = candidate(
-        "given_names",
-        corroborated[0] if corroborated else None,
-        given_row,
-        "The printed given names agree with the partial MRZ."
-        if corroborated
-        else "The printed name and partial MRZ do not agree; no spelling was selected.",
-    )
-    surname = match[1].replace("<", " ").strip()
-    surname_rows = [
-        row for row in column if abs(_center_y(row) - (_center_y(dob) - 2 * step)) <= step * 0.4
-    ]
-    if len(surname_rows) == 1:
-        row = surname_rows[0]
-        agreed = row.text.strip().upper() == surname and row.confidence >= 0.65
-        fields["surname"] = candidate(
-            "surname",
-            row.text.strip() if agreed else None,
-            row,
-            "Printed surname agrees with the partial MRZ, which has no name check digit."
-            if agreed
-            else "The printed surname and partial MRZ do not agree; no spelling was selected.",
-        )
+    # These unlabeled rows establish layout spacing only. Their text must not
+    # become a name by matching it against another source.
     fields["issuing_country"] = candidate("issuing_country", "IND", country[0])
-    fields["sex"] = candidate("sex", sex.text.strip().upper(), sex)
+    fields["issuing_country"].normalized_value = "IND"
+    fields["issuing_country"].normalization_basis = (
+        "Issuing-state code from the partial MRZ, corroborated by the document heading."
+    )
+    fields["sex"] = candidate("sex", sex.text.strip(), sex)
     for name, offset in [
         ("date_of_birth", 0),
         ("place_of_birth", 1),
@@ -186,6 +166,20 @@ def indian_passport_candidates(
         elif not re.fullmatch(r"[A-Za-z][A-Za-z ,.\-']{2,}", value):
             continue
         field = candidate(name, value, row, reason or "")
+        # Relative row offsets alone do not establish a date or place heading.
+        # Keep the possible reading as evidence rather than filling a missing field.
+        field.value = None
+        field.display_value = None
+        field.value_kind = "unresolved"
+        field.reason = (
+            "A possible reading was found at the expected layout position, but its heading "
+            "was not established. No value was selected. " + (reason or "")
+        )
+        field.evidence = [
+            item.model_copy(update={"candidate_value": row.text})
+            if item.source == "visual" else item
+            for item in field.evidence
+        ]
         if name == "place_of_issue":
             other.append(field)
         else:

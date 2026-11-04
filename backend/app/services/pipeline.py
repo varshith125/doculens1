@@ -4,15 +4,18 @@ import cv2
 
 from app.core.store import CapacityError, ScanJob, ScanStore
 from app.extractors.field_extractor import extract_fields
+from app.extractors.label_matcher import cached_label_matches
 from app.schemas.models import ScanOptions, ScanResult
 from app.services.imaging import ImageValidationError, decode_image, encode_jpeg, process_image
-from app.services.ocr import OCRService, OCRUnavailableError
+from app.services.ocr import OCRCancelled, OCRService, OCRUnavailableError
+from app.services.output import prepare_output
 
 
 class Cancelled(Exception):
     pass
 
 
+@cached_label_matches()
 def run_scan(
     job: ScanJob,
     uploads: dict[str, bytes],
@@ -44,8 +47,11 @@ def run_scan(
             warnings.append(
                 "Arabic recognition is experimental. Review every Arabic and Latin value against the original; model confidence does not guarantee accuracy."
             )
-        for side, data in uploads.items():
+        for side in ("front", "back"):
             stage("detecting_document")
+            data = uploads.get(side)
+            if data is None:
+                continue
             tick = time.perf_counter()
             original = decode_image(data)
             measure("image_decode", tick)
@@ -61,6 +67,7 @@ def run_scan(
                 side=side,
                 language=options.language,
                 auto_rotate=side_options.rotation == 0,
+                cancelled=job.cancelled,
             )
             measure("ocr", tick)
             metadata = processed.metadata
@@ -78,11 +85,14 @@ def run_scan(
             all_lines.extend(lines)
             tick = time.perf_counter()
             stored_images[(side, "original")] = encode_jpeg(processed.original)
-            stored_images[(side, "corrected")] = encode_jpeg(corrected)
+            stored_images[(side, "corrected")] = (
+                stored_images[(side, "original")]
+                if corrected is processed.original else encode_jpeg(corrected)
+            )
             measure("image_encoding", tick)
         stage("validating_fields")
         tick = time.perf_counter()
-        extracted = extract_fields(all_lines, date_order=options.date_order)
+        extracted = prepare_output(extract_fields(all_lines, date_order=options.date_order))
         warnings.extend(extracted.pop("warnings", []))
         if not all_lines:
             warnings.append(
@@ -105,17 +115,19 @@ def run_scan(
             timings_ms=timings,
         )
         store.complete(job, result, stored_images)
-    except Cancelled:
+    except (Cancelled, OCRCancelled):
         return
     except (ImageValidationError, OCRUnavailableError, CapacityError) as exc:
         with store.lock:
             if not job.cancelled.is_set():
                 job.status = job.stage = "failed"
                 job.error = str(exc)
+                job.completed_at = time.monotonic()
     except Exception:
         with store.lock:
             if not job.cancelled.is_set():
                 job.status = job.stage = "failed"
                 job.error = "The document could not be processed. Try another image or restart the local scanner."
+                job.completed_at = time.monotonic()
     finally:
         uploads.clear()

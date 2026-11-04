@@ -1,0 +1,184 @@
+{
+  "startup_s": 5.24,
+  "models": [
+    "D:\\DocuLens-OCR-Models\\PP-OCRv6_det_small.onnx",
+    "D:\\DocuLens-OCR-Models\\ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+    "D:\\DocuLens-OCR-Modelsmedium\\inference.onnx"
+  ],
+  "dictionary": "D:\\DocuLens-OCR-Models\\ppocrv6_dict.txt",
+  "cases": [
+    {
+      "format": "TD3",
+      "variant": "clear",
+      "seconds": 5.6,
+      "matches": {
+        "document_number": true,
+        "date_of_birth": true,
+        "date_of_issue": true,
+        "date_of_expiry": true,
+        "nationality": true,
+        "issuing_country": true,
+        "sex": true,
+        "surname": true,
+        "given_names": true,
+        "document_type": true
+      },
+      "mrz_exact": true,
+      "checksum": true,
+      "expected_checksum": true,
+      "hits": 11,
+      "expected_regions": 12,
+      "predicted_regions": 12,
+      "matched_characters": 302,
+      "character_edits": 0
+    },
+    {
+      "format": "TD3",
+      "variant": "blur",
+      "seconds": 6.99,
+      "matches": {
+        "document_number": true,
+        "date_of_birth": true,
+        "date_of_issue": true,
+        "date_of_expiry": true,
+        "nationality": true,
+        "issuing_country": true,
+        "sex": true,
+        "surname": true,
+        "given_names": true,
+        "document_type": true
+      },
+      "mrz_exact": true,
+      "checksum": true,
+      "expected_checksum": true,
+      "hits": 10,
+      "expected_regions": 12,
+      "predicted_regions": 12,
+      "matched_characters": 273,
+      "character_edits": 0
+    },
+    {
+      "format": "TD3",
+      "variant": "rotated",
+      "seconds": 7.27,
+      "matches": {
+        "document_number": true,
+        "date_of_birth": true,
+        "date_of_issue": true,
+        "date_of_expiry": true,
+        "nationality": true,
+        "issuing_country": true,
+        "sex": true,
+        "surname": true,
+        "given_names": true,
+        "document_type": true
+      },
+      "mrz_exact": true,
+      "checksum": true,
+      "expected_checksum": true,
+      "hits": 12,
+      "expected_regions": 12,
+      "predicted_regions": 12,
+      "matched_characters": 308,
+      "character_edits": 0
+    },
+    {
+      "format": "TD1",
+      "variant": "clear",
+      "seconds": 7.29,
+      "matches": {
+        "document_number": true,
+        "date_of_birth": true,
+        "date_of_issue": true,
+        "date_of_expiry": true,
+        "nationality": true,
+        "issuing_country": true,
+        "sex": true,
+        "full_name": true,
+        "document_type": true
+      },
+      "mrz_exact": true,
+      "checksum": true,
+      "expected_checksum": true,
+      "hits": 12,
+      "expected_regions": 12,
+      "predicted_regions": 12,
+      "matched_characters": 308,
+      "character_edits": 0
+    },
+    {
+      "format": "TD2",
+      "variant": "perspective",
+      "seconds": 7.3,
+      "matches": {
+        "document_number": true,
+        "date_of_birth": true,
+        "date_of_issue": true,
+        "date_of_expiry": true,
+        "nationality": true,
+        "issuing_country": true,
+        "sex": true,
+        "full_name": true,
+        "document_type": true
+      },
+      "mrz_exact": true,
+      "checksum": true,
+      "expected_checksum": true,
+      "hits": 11,
+      "expected_regions": 11,
+      "predicted_regions": 11,
+      "matched_characters": 290,
+      "character_edits": 0
+    },
+    {
+      "format": "TD3",
+      "variant": "damaged-check",
+      "seconds": 7.41,
+      "matches": {
+        "document_number": true,
+        "date_of_birth": true,
+        "date_of_issue": true,
+        "date_of_expiry": true,
+        "nationality": true,
+        "issuing_country": true,
+        "sex": true,
+        "surname": true,
+        "given_names": true,
+        "document_type": true
+      },
+      "mrz_exact": true,
+      "checksum": false,
+      "expected_checksum": false,
+      "hits": 11,
+      "expected_regions": 12,
+      "predicted_regions": 12,
+      "matched_characters": 302,
+      "character_edits": 0
+    }
+  ],
+  "tilted_regressions": [
+    {
+      "case": "distant_blur_tilt_15",
+      "exact": 5,
+      "total": 6,
+      "missed": {
+        "date_of_birth": null
+      }
+    },
+    {
+      "case": "distant_blur_tilt_11",
+      "exact": 5,
+      "total": 6,
+      "missed": {
+        "date_of_birth": null
+      }
+    },
+    {
+      "case": "distant_blur_tilt_18",
+      "exact": 6,
+      "total": 6,
+      "missed": {}
+    }
+  ],
+  "peak_working_set_mib": 547.8
+}

@@ -21,6 +21,8 @@ class ScanJob:
     error: str | None = None
     images: dict[tuple[str, str], bytes] = field(default_factory=dict)
     cancelled: threading.Event = field(default_factory=threading.Event)
+    uploads: dict[str, bytes] = field(default_factory=dict, repr=False)
+    completed_at: float | None = None
 
 
 class ScanStore:
@@ -34,22 +36,34 @@ class ScanStore:
     def prune(self) -> None:
         with self.lock:
             for key, job in list(self._jobs.items()):
-                if time.monotonic() - job.created > self.retention:
-                    job.cancelled.set()
-                    job.images.clear()
-                    job.result = None
+                now = time.monotonic()
+                if (now - job.created > 300
+                        or (job.completed_at is not None and now - job.completed_at > self.retention)):
+                    self._discard(job)
                     del self._jobs[key]
 
-    def create(self, owner: str) -> ScanJob:
+    @staticmethod
+    def _discard(job: ScanJob) -> None:
+        job.cancelled.set()
+        job.uploads.clear()
+        job.images.clear()
+        job.result = None
+        job.error = None
+
+    def create(self, owner: str, uploads: dict[str, bytes] | None = None) -> ScanJob:
         with self.lock:
             self.prune()
+            # One current document per session. A new upload never retains or
+            # queues behind that session's previous identity document.
+            for key, previous in list(self._jobs.items()):
+                if previous.owner == owner:
+                    self._discard(previous)
+                    del self._jobs[key]
             if len(self._jobs) >= self.capacity:
                 raise CapacityError(
                     "The scanner is at capacity. Clear an earlier scan or try later."
                 )
-            if sum(job.owner == owner for job in self._jobs.values()) >= 2:
-                raise CapacityError("Clear an earlier scan before starting another.")
-            job = ScanJob(owner=owner)
+            job = ScanJob(owner=owner, uploads=uploads if uploads is not None else {})
             self._jobs[job.scan_id] = job
             return job
 
@@ -73,22 +87,20 @@ class ScanStore:
             job.result = result
             job.images = images
             job.status = job.stage = "completed"
+            job.completed_at = time.monotonic()
+            job.uploads.clear()
 
     def delete(self, scan_id: str, owner: str) -> bool:
         with self.lock:
             job = self.get(scan_id, owner)
             if not job:
                 return False
-            job.cancelled.set()
-            job.images.clear()
-            job.result = None
+            self._discard(job)
             del self._jobs[scan_id]
             return True
 
     def clear(self) -> None:
         with self.lock:
             for job in self._jobs.values():
-                job.cancelled.set()
-                job.images.clear()
-                job.result = None
+                self._discard(job)
             self._jobs.clear()

@@ -2,6 +2,7 @@
 .cache
 .uv-cache
 models
+backend/models
 frontend/node_modules
 frontend/.npm-cache
 frontend/dist

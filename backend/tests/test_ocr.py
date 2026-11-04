@@ -35,7 +35,9 @@ def test_rotated_boxes_remain_in_corrected_coordinates():
         text="TEST", confidence=0.9, bounding_box=[[20, 10], [70, 10], [70, 30], [20, 30]]
     )
     rotated = _rotate_lines([line], 100, 50, 90)[0]
-    assert rotated.bounding_box == [[39, 20], [39, 70], [19, 70], [19, 20]]
+    # All four transformed vertices in the corrected frame's top-left-first order.
+    assert rotated.bounding_box == [[19, 20], [39, 20], [39, 70], [19, 70]]
+    assert line.bounding_box == [[20, 10], [70, 10], [70, 30], [20, 30]]
     assert rotated.text == line.text
 
 
@@ -45,6 +47,37 @@ def test_missing_arabic_model_is_not_advertised(monkeypatch):
     assert service.languages == ["latin"]
     with pytest.raises(OCRUnavailableError, match="not installed"):
         service.read(np.ones((100, 200, 3), dtype=np.uint8), language="arabic")
+
+
+def test_partial_custom_bundle_does_not_fall_back(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOCULENS_OCR_MODELS_DIR", str(tmp_path))
+    (tmp_path / "PP-OCRv6_det_small.onnx").touch()
+    service = OCRService(medium_det_path="", medium_rec_path="")
+    with pytest.raises(OCRUnavailableError, match="DOCULENS_OCR_MODELS_DIR") as failure:
+        service.warmup()
+    for missing in ("ppocrv6_dict.txt", "PP-OCRv6_rec_small.onnx", "ch_ppocr_mobile_v2.0_cls_mobile.onnx"):
+        assert missing in str(failure.value)
+    assert not service.ready
+
+
+def test_custom_dictionary_order_must_match_recognizer(tmp_path, monkeypatch):
+    from rapidocr import RapidOCR
+
+    for name in ("PP-OCRv6_det_small.onnx", "PP-OCRv6_rec_small.onnx", "ch_ppocr_mobile_v2.0_cls_mobile.onnx"):
+        (tmp_path / name).touch()
+    (tmp_path / "ppocrv6_dict.txt").write_text("B\nA\n", encoding="utf-8")
+    # Matching output width alone cannot detect a swapped character index.
+    recognizer = SimpleNamespace(
+        postprocess_op=SimpleNamespace(character=["blank", "A", "B", " "]),
+        session=SimpleNamespace(session=SimpleNamespace(
+            get_outputs=lambda: [SimpleNamespace(shape=[None, None, 4])]
+        )),
+    )
+    monkeypatch.setattr(RapidOCR, "_load_rec_model", lambda self: recognizer)
+    service = OCRService(ocr_models_dir=str(tmp_path), medium_det_path="", medium_rec_path="")
+    with pytest.raises(OCRUnavailableError, match="does not match"):
+        service.warmup()
+    assert not service.ready
 
 
 def test_region_retry_preserves_uncorroborated_text():
@@ -120,6 +153,17 @@ def test_invalid_month_is_not_rewritten_if_no_reread_observes_valid_month():
 
     OCRService._retry_uncertain_regions(engine, np.full((60, 180, 3), 255, np.uint8), [line])
     assert line.text == "21 0CT 2025"
+
+
+@pytest.mark.parametrize("alternative", ["12 OCT 2025", "21 OCT 2005", "21 DEC 2025"])
+def test_single_valid_reread_cannot_change_other_date_components(alternative):
+    line = OCRLine(text="21 0CT 2025", confidence=0.99, bounding_box=[[0,0],[140,0],[140,25],[0,25]])
+    readings = iter([alternative, line.text])
+    def engine(image, **kwargs):
+        return SimpleNamespace(txts=(next(readings),), scores=(0.96,))
+    OCRService._retry_uncertain_regions(engine, np.full((60,180,3),255,np.uint8), [line])
+    assert line.text == "21 0CT 2025"
+    assert line.review_required
 
 
 def test_orientation_requires_multiple_agreeing_confident_lines():

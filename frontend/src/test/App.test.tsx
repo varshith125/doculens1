@@ -222,7 +222,7 @@ describe("Document workflow", () => {
     try {
       fireEvent.click(screen.getByRole("button", { name: "Scan document" }));
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(180_000);
+        await vi.advanceTimersByTimeAsync(300_000);
       });
       expect(screen.getByRole("alert")).toHaveTextContent(
         "The scan took too long",

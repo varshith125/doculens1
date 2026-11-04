@@ -13,6 +13,12 @@ export interface ScanOptions {
   date_order?: "dmy" | "mdy" | "auto";
 }
 export interface Evidence {
+  label_fragments?: { raw_text: string; bounding_box: number[][] }[];
+  associated_label?: string | null;
+  label_bounding_box?: number[][] | null;
+  candidate_value?: string | null;
+  normalized_value?: string | null;
+  validation?: Record<string, boolean | null>;
   recognition_method?: string | null;
   source: "visual" | "mrz" | "pattern";
   raw_text: string;
@@ -23,6 +29,20 @@ export interface Evidence {
 export type FieldStatus =
   "validated" | "detected" | "uncertain" | "conflicting" | "not_detected";
 export interface FieldValue {
+  code?: string | null;
+  code_source?: string | null;
+  country_name?: string | null;
+  raw?: string | null;
+  box?: number[] | null;
+  user_edited?: boolean;
+  extracted_value?: string | null;
+  english_label?: string;
+  observed_value?: string | null;
+  display_value?: string | null;
+  normalized_value?: string | null;
+  normalization_basis?: string | null;
+  value_kind?: "printed" | "mrz" | "assembled" | "unresolved" | null;
+  validation?: Record<string, boolean | null>;
   field_name: string;
   display_label?: string | null;
   value: string | null;
@@ -44,6 +64,9 @@ export interface OCRLine {
   side: Side;
 }
 export interface MRZResult {
+  interpreted_lines?: string[];
+  corrections?: string[];
+  raw_checks?: Record<string, boolean | null>;
   detected: boolean;
   format: string | null;
   raw_lines: string[];
@@ -65,9 +88,12 @@ export interface ImageResult {
   corrected_url: string;
 }
 export interface ScanResult {
+  checks?: Record<string, boolean | null>;
   scan_id: string;
   status: "completed";
   document_type: string;
+  document_type_reason?: string | null;
+  document_type_evidence?: Evidence[];
   issuing_country: string | null;
   fields: Record<string, FieldValue>;
   mrz: MRZResult;

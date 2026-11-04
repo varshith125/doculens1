@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "@/services/api";
-import type { ScanOptions, ScanResult, Stage, Uploads } from "@/types/scan";
+import type { ScanOptions, ScanResult, Side, Stage, Uploads } from "@/types/scan";
+
+type Previews = Partial<Record<Side, { original: Blob; corrected: Blob }>>;
 
 interface ScanState {
   busy: boolean;
   stage: Stage | null;
   result: ScanResult | null;
   error: string | null;
+  previews: Previews;
 }
 const empty: ScanState = {
   busy: false,
   stage: null,
   result: null,
   error: null,
+  previews: {},
 };
 
 export function useScan() {
@@ -43,7 +47,13 @@ export function useScan() {
     });
   }, [dispose]);
 
-  useEffect(() => () => dispose(), [dispose]);
+  useEffect(() => {
+    window.addEventListener("pagehide", reset);
+    return () => {
+      window.removeEventListener("pagehide", reset);
+      dispose();
+    };
+  }, [dispose, reset]);
 
   const scan = useCallback(
     async (files: Uploads, options: ScanOptions) => {
@@ -54,7 +64,7 @@ export function useScan() {
       setState({ ...empty, busy: true, stage: "queued" });
       const timeout = setTimeout(
         () => active.abort(new DOMException("Scan timeout", "TimeoutError")),
-        180_000,
+        300_000,
       );
       try {
         const started = await api.startScan(files, options, active.signal);
@@ -72,16 +82,45 @@ export function useScan() {
                 "The document could not be read. Try a sharper, evenly lit image.",
             );
           if (job.status === "completed" && job.result) {
+            clearTimeout(timeout);
             setState({
               busy: false,
               stage: "completed",
               result: job.result,
               error: null,
+              previews: {},
             });
+            const previews: Previews = {};
+            const previewResults = await Promise.allSettled(job.result.images.map(async ({ side }) => {
+              const uploaded = files[side];
+              const [original, corrected] = await Promise.all([
+                // Raster uploads already have a local original preview. PDFs
+                // still need the backend's rendered page for viewing/cropping.
+                uploaded && uploaded.type !== "application/pdf" && !/\.pdf$/i.test(uploaded.name)
+                  ? Promise.resolve(uploaded)
+                  : api.imageBlob(started.scan_id, side, "original", active.signal),
+                api.imageBlob(started.scan_id, side, "corrected", active.signal),
+              ]);
+              if (run !== generation.current) return;
+              previews[side] = { original, corrected };
+              setState((previous) => ({ ...previous, previews: { ...previews } }));
+            }));
+            if (run !== generation.current) return;
+            if (previewResults.some((preview) => preview.status === "rejected")) {
+              setState((previous) => ({ ...previous,
+                error: "Extracted results are available, but a document preview could not be loaded.",
+              }));
+            }
+            // Cleanup must not delay or discard completed extraction. Keep the
+            // ID on failure so reset/unmount can retry; server retention also applies.
+            void api.deleteScan(started.scan_id).then(() => {
+              if (currentId.current === started.scan_id) currentId.current = null;
+            }).catch(() => undefined);
             return;
           }
-          setState({ busy: true, stage: job.stage, result: null, error: null });
-          await api.delay(650, active.signal);
+          setState((previous) => previous.stage === job.stage
+            ? previous : { ...previous, stage: job.stage });
+          await api.delay(250, active.signal);
         }
       } catch (error) {
         if (run !== generation.current) return;

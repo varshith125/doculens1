@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  AlertCircle,
   Check,
   ChevronDown,
   Copy,
@@ -10,55 +9,95 @@ import {
   ScanText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { label } from "@/lib/utils";
-import { displayValue } from "@/lib/format";
+import { copyValue, dateOrderWarning, displayValue, fieldHeading, isMRZDate } from "@/lib/format";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { useMotion } from "@/hooks/useMotion";
 import type { FieldValue, ScanResult } from "@/types/scan";
+import { editField, reviewedResult } from "@/lib/review";
+import { canSuggestIndianNationality, confirmIndianNationality, missingNationality } from "@/lib/nationalitySuggestion";
+
+const documentTitles: Record<string, string> = {
+  passport: "Passport", emirates_id: "Emirates ID", identity_card: "Identity Card",
+  travel_document: "Travel Document",
+};
 
 async function copyText(text: string) {
   await navigator.clipboard.writeText(text);
 }
 
-function fieldHeading(field: FieldValue, documentType?: string) {
-  return (
-    field.display_label ||
-    (field.field_name === "document_number" && documentType === "passport"
-      ? "Passport Number"
-      : label(field.field_name))
-  );
-}
-
 function FieldRow({
   field,
   documentType,
+  onEdit,
+  onHighlight,
+  suggestIndianNationality = false,
 }: {
   field: FieldValue;
   documentType?: string;
+  onEdit: (field: FieldValue) => void;
+  onHighlight?: (field: FieldValue | null) => void;
+  suggestIndianNationality?: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const value = displayValue(field);
+  const isDate = ["date_of_birth", "date_of_issue", "date_of_expiry"].includes(field.field_name);
   const fieldLabel = fieldHeading(field, documentType);
+  const dateWarning = dateOrderWarning(field);
+  const issuerField = ["issuing_country", "country_code", "issuing_authority", "authority_code", "nationality", "place_of_issue"].includes(field.field_name);
+  const missingAuthority = ["issuing_authority", "authority_code"].includes(field.field_name)
+    && !field.value && field.evidence.length === 0;
+  const readingNotes = [
+    suggestIndianNationality ? "Suggested from issuing country India (IND). Confirm against the document; issuing country alone does not establish nationality." : null,
+    field.reason,
+    (field.value_kind === "mrz" || isMRZDate(field)) && value
+      ? isMRZDate(field)
+        ? "MRZ source · YYMMDD; full date unavailable, century not recorded"
+        : "MRZ reading"
+      : null,
+    dateWarning && !field.reason?.includes(dateWarning) ? dateWarning : null,
+    issuerField && field.status === "conflicting" && value
+      ? "Conflicting readings — compare with the document. Both readings are kept in Technical details."
+      : null,
+  ].filter((note): note is string => Boolean(note));
   return (
-    <div className="field-row" data-result-field>
+    <div className="field-row" data-result-field
+      onMouseEnter={() => onHighlight?.(field)} onMouseLeave={() => onHighlight?.(null)}
+      onFocus={() => onHighlight?.(field)} onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onHighlight?.(null);
+      }}>
       <div className="field-topline">
         <span className="field-label">{fieldLabel}</span>
-        {(field.status === "uncertain" || field.status === "conflicting") && (
-          <span className={`status status-${field.status}`}>
-            <AlertCircle size={11} />
-            {value ? "Uncertain" : "Unreadable"}
-          </span>
-        )}
+        {field.user_edited && <span className="field-edited">Edited</span>}
       </div>
+      {editing ? (
+        <form className="field-edit" onSubmit={(event) => {
+          event.preventDefault();
+          try { onEdit(editField(field, draft)); setEditing(false); setEditError(null); }
+          catch (error) { setEditError(error instanceof Error ? error.message : "Check the value."); }
+        }}>
+          <label>Edit {fieldLabel}<input type={isDate ? "date" : "text"} autoFocus value={draft} onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Escape") setEditing(false); }} /></label>
+          <Button size="sm" type="submit">Save</Button>
+          <Button size="sm" variant="ghost" type="button" onClick={() => setEditing(false)}>Cancel</Button>
+          {editError && <p role="alert">{editError}</p>}
+        </form>
+      ) : <Button variant="ghost" size="sm" onClick={() => {
+        setDraft(isDate ? field.normalized_value ?? "" : displayValue(field)); setEditError(null); setEditing(true);
+      }}>Edit {fieldLabel}</Button>}
       <div className="field-value-line">
         <strong dir="auto">
-          {value ||
+          {value || (suggestIndianNationality ? "Suggested nationality: Indian — please confirm" : missingAuthority ? "Not available" :
             (field.status === "conflicting"
-              ? "Multiple readings available"
+              ? "Multiple readings available in Technical details"
               : field.status === "uncertain"
-                ? "Unreadable"
-                : "Not available")}
+                ? ["date_of_birth", "date_of_issue", "date_of_expiry"].includes(field.field_name)
+                  ? "Full date unavailable"
+                  : "Could not read this field — upload a clearer image"
+                : "Not available"))}
         </strong>
         {field.value && (
           <Button
@@ -66,7 +105,7 @@ function FieldRow({
             variant="ghost"
             aria-label={`Copy ${fieldLabel}`}
             onClick={() => {
-              void copyText(value)
+              void copyText(copyValue(field))
                 .then(() => {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1800);
@@ -78,6 +117,23 @@ function FieldRow({
           </Button>
         )}
       </div>
+      {suggestIndianNationality && !editing && (
+        <Button size="sm" variant="outline" onClick={() => onEdit(confirmIndianNationality(field))}>
+          Confirm Indian nationality
+        </Button>
+      )}
+      {readingNotes.length > 0 && (
+        <details className="field-notes">
+          <summary aria-label={`Reading notes for ${fieldLabel}`}>
+            Reading notes <ChevronDown size={14} aria-hidden="true" />
+          </summary>
+          <div className="field-notes-body">
+            {[...new Set(readingNotes)].map((note) => (
+              <p className="field-reason" key={note}>{note}</p>
+            ))}
+          </div>
+        </details>
+      )}
       {copyError && (
         <p className="field-reason" role="alert">
           Clipboard unavailable. Select the value to copy it.
@@ -87,16 +143,31 @@ function FieldRow({
   );
 }
 
-export function Results({ result }: { result: ScanResult }) {
+export function Results({ result: original, onHighlight }: {
+  result: ScanResult; onHighlight?: (field: FieldValue | null) => void;
+}) {
+  const [edits, setEdits] = useState<Record<string, FieldValue>>({});
+  const offerSuggestion = canSuggestIndianNationality(original);
+  const needsNationalityRow = offerSuggestion && !original.fields.nationality
+    && !original.other_fields.some((field) => field.field_name === "nationality");
+  const result = reviewedResult(needsNationalityRow
+    ? { ...original, fields: { ...original.fields, nationality: missingNationality() } }
+    : original, edits);
+  const suggestIndianNationality = canSuggestIndianNationality(result);
+  const onEdit = (field: FieldValue) => setEdits((previous) => ({ ...previous, [field.field_name]: field }));
   const motion = useMotion("results", result.scan_id);
   const [notice, setNotice] = useState<string | null>(null);
   const fields = Object.values(result.fields).filter(
-    (field) => field.status !== "not_detected",
+    (field) => field.status !== "not_detected" || (suggestIndianNationality && field.field_name === "nationality"),
   );
-  const allFields = [
+  const diagnosticFields = [
     ...fields,
-    ...result.other_fields.filter((field) => field.status !== "not_detected"),
+    ...result.other_fields.filter((field) => field.status !== "not_detected" || (suggestIndianNationality && field.field_name === "nationality")),
   ];
+  // Derived compatibility values remain in diagnostics/export, not printed fields.
+  const allFields = diagnosticFields.filter((field) =>
+    field.value_kind !== "assembled" || field.validation?.mrz_name_assembly === true,
+  );
   const fieldCount = allFields.filter((field) => field.value).length;
   const hasText = result.ocr_lines.length > 0;
   const mrzLines = result.mrz.raw_lines;
@@ -114,6 +185,7 @@ export function Results({ result }: { result: ScanResult }) {
         "family_name",
         "given_names",
         "given_name",
+        "first_name",
         "middle_names",
         "full_name",
         "nationality",
@@ -133,7 +205,7 @@ export function Results({ result }: { result: ScanResult }) {
       allFields
         .map(
           (field) =>
-            `${fieldHeading(field, result.document_type)}: ${displayValue(field) || (field.status === "uncertain" ? "Unreadable" : "Not available")}${field.value && field.status === "conflicting" ? " (multiple readings)" : field.value && field.status === "uncertain" ? " (uncertain)" : ""}`,
+            `${fieldHeading(field, result.document_type)}: ${copyValue(field)}`,
         )
         .join("\n"),
     )
@@ -150,8 +222,20 @@ export function Results({ result }: { result: ScanResult }) {
       );
   };
   const exportJson = () => {
+    const withDisplay = (field: FieldValue): FieldValue => ({
+      ...field,
+      english_label: fieldHeading(field, result.document_type),
+      display_value: displayValue(field) || null,
+    });
+    const exported = {
+      ...result,
+      fields: Object.fromEntries(
+        Object.entries(result.fields).map(([name, field]) => [name, withDisplay(field)]),
+      ),
+      other_fields: result.other_fields.map(withDisplay),
+    };
     const url = URL.createObjectURL(
-      new Blob([JSON.stringify(result, null, 2)], { type: "application/json" }),
+      new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" }),
     );
     const anchor = documentElement(url, "doculens-results.json");
     anchor.click();
@@ -170,9 +254,7 @@ export function Results({ result }: { result: ScanResult }) {
         <div>
           <span className="eyebrow">DOCUMENT DETAILS</span>
           <h3>
-            {result.document_type === "unknown"
-              ? "Document image"
-              : label(result.document_type)}
+            {documentTitles[result.document_type] ?? "Document image"}
           </h3>
           <p>
             {result.issuing_country
@@ -186,8 +268,8 @@ export function Results({ result }: { result: ScanResult }) {
         </span>
       </div>
       <p className="extracted-text-note">
-        Details found in your document appear below. Check any marked for
-        verification against the original.
+        Details found in your document appear below. Compare them with the original;
+        expand Reading notes beside a field for its reading and validation details.
       </p>
       {fieldCount === 0 && !hasText && (
         <div className="no-fields">
@@ -217,6 +299,9 @@ export function Results({ result }: { result: ScanResult }) {
                 key={field.field_name}
                 field={field}
                 documentType={result.document_type}
+                onEdit={onEdit}
+                suggestIndianNationality={field.field_name === "nationality" && suggestIndianNationality}
+                onHighlight={onHighlight}
               />
             ))}
           </div>
@@ -234,6 +319,8 @@ export function Results({ result }: { result: ScanResult }) {
                 key={field.field_name}
                 field={field}
                 documentType={result.document_type}
+                onEdit={onEdit}
+                onHighlight={onHighlight}
               />
             ))}
           </div>
@@ -257,7 +344,10 @@ export function Results({ result }: { result: ScanResult }) {
             </Button>
           </>
         ) : (
-          <p>MRZ not available</p>
+          <>
+            <p>MRZ not available</p>
+            <p className="field-reason">Readable printed fields are shown independently of MRZ availability.</p>
+          </>
         )}
       </section>
       <details className="technical-details">
@@ -266,7 +356,7 @@ export function Results({ result }: { result: ScanResult }) {
         </summary>
         <TechnicalDetails
           result={result}
-          fields={allFields}
+          fields={diagnosticFields}
           onCopyOCR={copyOCR}
         />
       </details>

@@ -1,3 +1,6 @@
+import time
+from collections import OrderedDict, deque
+
 from starlette.responses import JSONResponse
 
 
@@ -8,14 +11,31 @@ class UploadTooLarge(Exception):
 class RequestGuard:
     """Bound streaming request bodies before Starlette's multipart parser sees them."""
 
-    def __init__(self, app, max_bytes: int, allowed_origins: list[str]):
+    def __init__(self, app, max_bytes: int, allowed_origins: list[str], require_https: bool = False):
         self.app = app
         self.max_bytes = max_bytes
         self.allowed_origins = set(allowed_origins)
+        self.require_https = require_https
+        self.requests = OrderedDict()
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        if self.require_https and scope.get("scheme") != "https":
+            return await JSONResponse({"detail": "HTTPS is required."}, 426)(scope, receive, send)
+        if scope["method"] == "POST":
+            now = time.monotonic()
+            client = (scope.get("client") or ("unknown",))[0]
+            entries = self.requests.setdefault(client, deque())
+            self.requests.move_to_end(client)
+            while entries and now - entries[0] > 60:
+                entries.popleft()
+            if len(entries) >= 30:
+                return await JSONResponse({"detail": "Too many requests. Try again in a minute."}, 429,
+                                          headers={"Retry-After": "60"})(scope, receive, send)
+            entries.append(now)
+            while len(self.requests) > 256:
+                self.requests.popitem(last=False)
         headers = dict(scope["headers"])
         origin = headers.get(b"origin", b"").decode("latin1")
         unsafe = scope["method"] not in {"GET", "HEAD", "OPTIONS"}

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 
-type MotionKind = "page" | "upload" | "progress" | "results";
+type MotionKind = "page" | "upload" | "progress" | "results" | "highlight" | "scan";
 
 /** Scoped GSAP animations never gate rendering or document processing. */
 export function useMotion(kind: MotionKind, changeKey: unknown = null) {
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if ((kind === "highlight" || kind === "scan") && !changeKey) return;
     let disposed = false;
     let revert: (() => void) | undefined;
     void import("gsap")
@@ -22,6 +23,8 @@ export function useMotion(kind: MotionKind, changeKey: unknown = null) {
               upload: ".file-info, .file-icon, .document-art",
               progress: "h3, .progress-description, .processing-steps .current",
               results: ".result-summary, [data-result-field]",
+              highlight: ".evidence-overlay polygon",
+              scan: ".scan-line",
             };
             const elements = Array.from(
               scope.querySelectorAll(selectors[kind]),
@@ -42,6 +45,11 @@ export function useMotion(kind: MotionKind, changeKey: unknown = null) {
                 duration: 14,
                 repeat: -1,
                 ease: "none",
+              });
+            }
+            if (kind === "scan") {
+              gsap.fromTo(scope.querySelector(".scan-line"), { top: "10%" }, {
+                top: "90%", duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut",
               });
             }
           },

@@ -179,8 +179,10 @@ it("shows a preferred name first and keeps evidence collapsed", async () => {
     />,
   );
   expect(screen.getByText("ALEX MORGAN EXAMPLE")).toBeVisible();
-  expect(screen.getByText("Uncertain")).toBeVisible();
+  expect(screen.queryByText("Uncertain")).not.toBeInTheDocument();
+  expect(screen.queryByText("Uncertain — review required")).not.toBeInTheDocument();
   expect(screen.queryByText("100% OCR")).not.toBeInTheDocument();
+  expect(screen.getByText("100% OCR confidence")).not.toBeVisible();
   const reason = screen.getByText("Other readings differ.");
   expect(reason.closest("details")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByRole("button", { name: "Copy Full Name" }));

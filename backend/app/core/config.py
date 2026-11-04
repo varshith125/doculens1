@@ -15,11 +15,16 @@ class Settings(BaseSettings):
     ]
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
     cookie_secure: bool = False
-    retention_seconds: int = Field(default=900, ge=30, le=3600)
+    require_https: bool = False
+    retention_seconds: int = Field(default=60, ge=30, le=3600)
     max_upload_mb: int = Field(default=12, ge=1, le=12)
     max_active_scans: int = Field(default=8, ge=1, le=32)
     workers: int = Field(default=1, ge=1, le=4)
     max_storage_mb: int = Field(default=160, ge=24, le=1024)
+    ocr_models_dir: str = ""
+    ocr_medium_det_path: str = ""
+    ocr_medium_rec_path: str = ""
+    ocr_fast_text: bool = True
     arabic_model_path: str = ""
     arabic_dictionary_path: str = ""
 

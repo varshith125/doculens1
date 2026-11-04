@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import threading
 import warnings
 from dataclasses import dataclass
 
@@ -16,6 +17,7 @@ WORKING_EDGE = 6000
 MAX_EDGE = 12_000
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 SUPPORTED_FORMATS = {"JPEG", "PNG", "WEBP"}
+PDF_RENDER_LOCK = threading.Lock()
 
 
 class ImageValidationError(ValueError):
@@ -33,6 +35,8 @@ def decode_image(data: bytes) -> np.ndarray:
     """Verify dimensions before allocation and normalize EXIF orientation once."""
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise ImageValidationError("Image must be between 1 byte and 12 MB.")
+    if data.startswith(b"%PDF-"):
+        return decode_pdf(data)
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
@@ -78,6 +82,41 @@ def decode_image(data: bytes) -> np.ndarray:
         Image.DecompressionBombWarning,
     ) as exc:
         raise ImageValidationError("The image is damaged or could not be decoded.") from exc
+
+
+def decode_pdf(data: bytes) -> np.ndarray:
+    """Rasterize one page locally with bounded allocation and explicit cleanup."""
+    # PDFium calls must not overlap when multiple scan workers are configured.
+    with PDF_RENDER_LOCK:
+        return _decode_pdf(data)
+
+
+def _decode_pdf(data: bytes) -> np.ndarray:
+    import pypdfium2 as pdfium
+
+    try:
+        with pdfium.PdfDocument(data) as document:
+            if len(document) != 1:
+                raise ImageValidationError("Upload a single-page PDF per side; split multi-page files first.")
+            page = document[0]
+            try:
+                width, height = page.get_size()
+                if not np.isfinite([width, height]).all() or min(width, height) <= 0:
+                    raise ImageValidationError("Invalid PDF page dimensions.")
+                scale = min(3, WORKING_EDGE / max(width, height),
+                            (WORKING_PIXELS / (width * height)) ** 0.5)
+                bitmap = page.render(scale=scale)
+                try:
+                    rgb = np.asarray(bitmap.to_pil().convert("RGB")).copy()
+                    return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                finally:
+                    bitmap.close()
+            finally:
+                page.close()
+    except ImageValidationError:
+        raise
+    except Exception as exc:
+        raise ImageValidationError("PDF is damaged, encrypted, or could not be rendered.") from exc
 
 
 def encode_jpeg(image: np.ndarray) -> bytes:
@@ -250,12 +289,10 @@ def detect_corners(image: np.ndarray) -> tuple[np.ndarray | None, list[str]]:
 
 def assess_quality(image: np.ndarray) -> tuple[dict[str, float], list[str]]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    sample = cv2.resize(
-        gray,
-        None,
-        fx=min(1, 1200 / max(gray.shape)),
-        fy=min(1, 1200 / max(gray.shape)),
-        interpolation=cv2.INTER_AREA,
+    scale = min(1, 1200 / max(gray.shape))
+    sample = (
+        cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        if scale < 1 else gray
     )
     metrics = {
         "sharpness": round(float(cv2.Laplacian(sample, cv2.CV_64F).var()), 2),
@@ -272,7 +309,10 @@ def assess_quality(image: np.ndarray) -> tuple[dict[str, float], list[str]]:
     metrics["noise_estimate"] = round(float(np.median(np.abs(sample.astype(float) - median))), 2)
     messages = []
     if metrics["sharpness"] < 55:
-        messages.append("The image may be blurred. Retake it in focus if characters are missing.")
+        messages.append(
+            "Possible blur detected. Retake the document with the camera steady and text in focus; "
+            "crop enhancement cannot reliably restore lost character detail."
+        )
     if metrics["contrast"] < 28:
         messages.append("Low contrast may hide faint printed details.")
     if metrics["brightness"] < 65 or metrics["dark_fraction"] > 0.45:
@@ -296,6 +336,39 @@ def enhance_for_ocr(image: np.ndarray) -> np.ndarray:
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     lab[:, :, 0] = cv2.createCLAHE(clipLimit=1.7, tileGridSize=(8, 8)).apply(lab[:, :, 0])
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+
+def text_region_for_ocr(image: np.ndarray, box: list[list[float]]) -> np.ndarray | None:
+    """Rectify one detected line with a small margin; keep source coordinates intact."""
+    points = np.asarray(box, dtype=np.float32)
+    if points.shape != (4, 2) or not np.isfinite(points).all():
+        return None
+    points = _order_corners(points)
+    if not cv2.isContourConvex(points) or cv2.contourArea(points) < 16:
+        return None
+    horizontal = points[1] - points[0]
+    vertical = points[3] - points[0]
+    width, height = float(np.linalg.norm(horizontal)), float(np.linalg.norm(vertical))
+    if min(width, height) < 4:
+        return None
+    margin = min(3.0, min(width, height) * 0.15)
+    horizontal = horizontal / width * margin
+    vertical = vertical / height * margin
+    padded = points + np.array([
+        -horizontal - vertical, horizontal - vertical,
+        horizontal + vertical, -horizontal + vertical,
+    ], dtype=np.float32)
+    output_width = max(np.linalg.norm(padded[1] - padded[0]), np.linalg.norm(padded[2] - padded[3]))
+    output_height = max(np.linalg.norm(padded[3] - padded[0]), np.linalg.norm(padded[2] - padded[1]))
+    scale = min(1.0, 2400 / max(output_width, output_height),
+                (1_000_000 / (output_width * output_height)) ** 0.5)
+    w, h = max(4, int(output_width * scale)), max(4, int(output_height * scale))
+    target = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.float32)
+    crop = cv2.warpPerspective(
+        image, cv2.getPerspectiveTransform(padded, target), (w, h),
+        flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE,
+    )
+    return rotate_image(crop, 90) if h > w * 1.6 else crop
 
 
 def process_image(

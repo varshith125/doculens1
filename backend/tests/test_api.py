@@ -1,4 +1,5 @@
 import io
+import tempfile
 import threading
 import time
 
@@ -108,7 +109,7 @@ def test_front_back_upload(client):
     [
         ("{}", "1990-04-03"),
         ('{"date_order":"mdy"}', "1990-03-04"),
-        ('{"date_order":"auto"}', "03/04/1990"),
+        ('{"date_order":"auto"}', None),
     ],
 )
 def test_date_order_reaches_extractor(client, engine, monkeypatch, options, expected):
@@ -129,7 +130,13 @@ def test_date_order_reaches_extractor(client, engine, monkeypatch, options, expe
     response = start(client, data={"options": options})
     assert response.status_code == 202
     body = wait_result(client, response.json()["scan_id"])
-    assert body["result"]["fields"]["date_of_birth"]["value"] == expected
+    field = body["result"]["fields"]["date_of_birth"]
+    assert field["value"] == field["normalized_value"] == expected
+    assert field["raw"] == "03/04/1990"
+    if expected is None:
+        assert field["display_value"] is None
+        assert field["status"] == "uncertain"
+        assert field["validation"]["date_order_ambiguous"] is True
 
 
 def test_requires_session_and_restricts_ownership(client):
@@ -215,7 +222,35 @@ def test_expiration_purges_images(client):
 
 def test_capacity_is_bounded(client, engine):
     engine.gate = threading.Event()
-    assert start(client).status_code == 202
-    assert start(client).status_code == 202
+    store = client.app.state.store
+    for index in range(store.capacity):
+        store.create(f"independent-owner-{index}")
     assert start(client).status_code == 429
     engine.gate.set()
+
+
+def test_new_scan_discards_previous_session_document(client, engine):
+    engine.gate = threading.Event()
+    first = start(client).json()["scan_id"]
+    previous = next(iter(client.app.state.store._jobs.values()))
+    second = start(client).json()["scan_id"]
+    assert first != second
+    assert previous.cancelled.is_set()
+    assert not previous.uploads
+    assert previous.result is None and not previous.images
+    assert client.get(f"/api/v1/scans/{first}").status_code == 404
+    assert len(client.app.state.store._jobs) == 1
+    engine.gate.set()
+    assert wait_result(client, second)["status"] == "completed"
+
+
+def test_upload_above_default_spool_threshold_never_writes_to_disk(monkeypatch, engine):
+    def forbidden_rollover(_self):
+        pytest.fail("Document uploads must not spill to a temporary disk file")
+    monkeypatch.setattr(tempfile.SpooledTemporaryFile, "rollover", forbidden_rollover)
+    with TestClient(create_app(Settings(max_upload_mb=2), engine)) as memory_client:
+        memory_client.post("/api/v1/session")
+        # Valid synthetic PNG plus padding; exceeds Starlette's usual 1 MiB limit.
+        submitted = start(memory_client, png() + b"\0" * (1024**2 + 100))
+        assert submitted.status_code == 202
+        assert wait_result(memory_client, submitted.json()["scan_id"])["status"] == "completed"

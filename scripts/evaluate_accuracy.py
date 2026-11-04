@@ -75,12 +75,10 @@ def main():
     for name, image in cases().items():
         started = time.perf_counter()
         lines = service.read(image)
-        kwargs = (
-            {"date_order": "dmy"}
-            if "date_order" in inspect.signature(extract_fields).parameters
-            else {}
-        )
-        extraction = extract_fields(lines, **kwargs)
+        if "date_order" in inspect.signature(extract_fields).parameters:
+            extraction = extract_fields(lines, date_order="dmy")
+        else:
+            extraction = extract_fields(lines)
         fields = {key: value.value for key, value in extraction["fields"].items()}
         matches = {key: fields.get(key) == value for key, value in EXPECTED.items()}
         item = {

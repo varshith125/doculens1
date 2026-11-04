@@ -157,29 +157,38 @@ def test_low_confidence_and_ambiguous_dates_uncertain():
     assert result["fields"]["date_of_birth"].status == "uncertain"
 
 
-def test_mrz_names_not_validated_and_century_not_invented():
+def test_mrz_names_not_validated_and_birth_century_uses_fixed_rule():
     result = extract_fields(mrz_lines())
     assert result["mrz"].checksum_valid
     assert result["fields"]["document_number"].status == "validated"
     assert result["fields"]["surname"].status == "detected"
-    assert result["fields"]["date_of_birth"].value == "740812"
+    assert result["fields"]["date_of_birth"].value == "1974-08-12"
+    assert result["fields"]["date_of_birth"].observed_value == "740812"
+    assert result["fields"]["date_of_expiry"].value == "1930-04-15"
+    assert result["fields"]["date_of_expiry"].normalized_value == "1930-04-15"
     assert result["fields"]["date_of_birth"].status == "uncertain"
     assert "date_of_issue" not in result["fields"]
 
 
 def test_printed_date_resolves_mrz_century_without_guessing():
-    result = extract_fields([line("Date of Birth: 12 AUG 1974")] + mrz_lines())
+    result = extract_fields([
+        line("Date of Birth: 12 AUG 1974"), line("Date of Expiry: 15 APR 2030", y=50),
+        *mrz_lines(),
+    ])
     field = result["fields"]["date_of_birth"]
     assert field.value == "1974-08-12"
     assert field.status == "detected"
-    assert field.source == "multiple"
+    assert field.source == "visual"
 
 
-def test_visual_mrz_conflict_is_not_overridden():
+def test_visual_reading_is_kept_without_cross_checking_mrz():
     result = extract_fields([line("Passport No: X12345678")] + mrz_lines())
     field = result["fields"]["document_number"]
     assert field.value == "X12345678"
-    assert field.status == "conflicting"
+    assert any("X12345678" in item.raw_text for item in field.evidence)
+    assert field.status == "detected"
+    assert "source_agreement" not in field.validation
+    assert result["mrz"].raw_lines
 
 
 def test_opposite_side_mrz_conflict_is_exposed():

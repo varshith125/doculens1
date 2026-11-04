@@ -71,10 +71,13 @@ def main():
         cold_ms = (time.perf_counter() - cold_start) * 1000
         if not engine.ready:
             raise RuntimeError("OCR startup failed")
+        result = None
         for index in range(args.runs):
             elapsed, result = scan_once()
             samples.append({"request_ms": round(elapsed, 2), **result["timings_ms"]})
             print(f"Scan {index + 1}/{args.runs}: {elapsed:.0f} ms", flush=True)
+        if result is None:
+            raise RuntimeError("No benchmark scans completed")
         with ThreadPoolExecutor(max_workers=2) as pool:
             concurrent = list(pool.map(lambda _: scan_once()[0], range(4)))
         report = {
@@ -106,7 +109,7 @@ def main():
             "samples": samples,
             "observed": {
                 "ocr_lines": len(result["ocr_lines"]),
-                "mrz_detected": result["mrz"]["detected"],
+                "mrz_detected": result["mrz"]["detected"], # type: ignore
                 "mrz_checksum_valid": result["mrz"]["checksum_valid"],
                 "field_names": list(result["fields"]),
             },

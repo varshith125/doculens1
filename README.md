@@ -12,6 +12,7 @@ DocuLens is an assistance tool. It does not verify a person's identity, authenti
 - Rotate, crop, and straighten images before processing.
 - Extract supported printed fields and parse TD1, TD2, and TD3 MRZ formats.
 - Associate known multilingual captions with nearby values and retain OCR evidence for review.
+- Handle different label and value sizes: relative text size can help associate a smaller caption with a larger printed answer. There is no fixed minimum label-font cutoff; very small or unclear text may still be missed by OCR.
 - Show uncertainty and conflicting readings instead of silently treating them as verified facts.
 - Copy reviewed values or export the result as JSON.
 - Run OCR and image processing locally with OpenCV and ONNX Runtime; no hosted OCR or generative AI service is used by the scan pipeline.

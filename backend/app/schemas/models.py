@@ -83,9 +83,6 @@ class MRZResult(BaseModel):
     corrections: list[str] = Field(default_factory=list)
     raw_checks: dict[str, bool | None] = Field(default_factory=dict)
     raw_fields: dict[str, str] = Field(default_factory=dict)
-    interpreted_lines: list[str] = Field(default_factory=list)
-    corrections: list[str] = Field(default_factory=list)
-    raw_checks: dict[str, bool | None] = Field(default_factory=dict)
     detected: bool = False
     format: str | None = None
     raw_lines: list[str] = Field(default_factory=list)
@@ -163,3 +160,5 @@ class HealthResponse(BaseModel):
     retention_seconds: int
     max_upload_mb: int
     version: str
+    # Optional engines actually usable in this process, discovered at runtime.
+    optional_engines: dict[str, bool] = Field(default_factory=dict)

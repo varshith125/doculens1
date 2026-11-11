@@ -5,9 +5,12 @@ import cv2
 import numpy as np
 import pytest
 
+from app.core.store import ScanStore
 from app.extractors.field_extractor import extract_fields
+from app.schemas.models import ScanOptions, SideOptions
 from app.services.imaging import decode_image
 from app.services.ocr import OCRService
+from app.services.pipeline import run_scan
 
 pytestmark = [
     pytest.mark.integration,
@@ -93,3 +96,30 @@ def test_uniform_unrecoverable_pixels_do_not_create_identity_values(engine):
     lines = engine.read(np.full((320, 500, 3), 220, np.uint8))
     assert lines == []
     assert extract_fields(lines)["fields"] == {}
+
+
+@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
+def test_manual_rotation_preserves_passport_fields_and_mrz(engine, rotation):
+    """Exercise the same rotation option sent by the app's Rotate button."""
+    fixture = Path(__file__).resolve().parents[2] / "docs" / "specimen.png"
+    store = ScanStore(retention=600, capacity=1, max_bytes=32 * 1024 * 1024)
+    job = store.create("fictional-passport-rotation")
+    try:
+        run_scan(
+            job, {"front": fixture.read_bytes()},
+            ScanOptions(front=SideOptions(rotation=rotation)), store, engine,
+        )
+        assert job.status == "completed", job.error
+        result = job.result
+        assert result is not None
+        expected = {
+            "surname": "ERIKSSON", "given_names": "ANNA MARIA",
+            "document_number": "L898902C3", "nationality": "UTO",
+            "date_of_birth": "1974-08-12", "date_of_expiry": "2012-04-15", "sex": "F",
+        }
+        assert {key: result.fields[key].value for key in expected} == expected
+        assert result.mrz.checksum_valid is True
+        assert result.images[0].rotation == 0
+        assert result.images[0].width > result.images[0].height
+    finally:
+        store.clear()

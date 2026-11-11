@@ -41,7 +41,7 @@ def test_split_caption_never_joins_opposite_sides():
         row("Given", width=35), row("Names", x=40, width=35, side="back"),
         row("ALEX", y=20, height=18),
     ])["fields"]
-    assert "given_names" not in fields
+    assert fields["given_names"].value is None
 
 
 def test_noisy_prefix_needs_document_and_caption_size_context():

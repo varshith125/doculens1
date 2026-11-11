@@ -9,7 +9,7 @@ import {
   ScanText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { copyValue, dateOrderWarning, displayValue, fieldHeading, isMRZDate } from "@/lib/format";
+import { copyValue, dateOrderWarning, displayValue, fieldHeading, isMRZDate, missingValueMessage } from "@/lib/format";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { useMotion } from "@/hooks/useMotion";
 import type { FieldValue, ScanResult } from "@/types/scan";
@@ -58,7 +58,6 @@ function FieldRow({
         ? "MRZ source · YYMMDD; full date unavailable, century not recorded"
         : "MRZ reading"
       : null,
-    dateWarning && !field.reason?.includes(dateWarning) ? dateWarning : null,
     issuerField && field.status === "conflicting" && value
       ? "Conflicting readings — compare with the document. Both readings are kept in Technical details."
       : null,
@@ -91,13 +90,7 @@ function FieldRow({
       <div className="field-value-line">
         <strong dir="auto">
           {value || (suggestIndianNationality ? "Suggested nationality: Indian — please confirm" : missingAuthority ? "Not available" :
-            (field.status === "conflicting"
-              ? "Multiple readings available in Technical details"
-              : field.status === "uncertain"
-                ? ["date_of_birth", "date_of_issue", "date_of_expiry"].includes(field.field_name)
-                  ? "Full date unavailable"
-                  : "Could not read this field — upload a clearer image"
-                : "Not available"))}
+            missingValueMessage(field))}
         </strong>
         {field.value && (
           <Button
@@ -105,7 +98,7 @@ function FieldRow({
             variant="ghost"
             aria-label={`Copy ${fieldLabel}`}
             onClick={() => {
-              void copyText(copyValue(field))
+              void copyText(value)
                 .then(() => {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1800);
@@ -117,6 +110,7 @@ function FieldRow({
           </Button>
         )}
       </div>
+      {dateWarning && <p className="field-reason">{dateWarning}</p>}
       {suggestIndianNationality && !editing && (
         <Button size="sm" variant="outline" onClick={() => onEdit(confirmIndianNationality(field))}>
           Confirm Indian nationality
@@ -200,6 +194,15 @@ export function Results({ result: original, onHighlight }: {
         Number(a.field_name === "full_name"),
     );
   const document = allFields.filter((field) => !personal.includes(field));
+  const issuingCountry = allFields.find((f) => f.field_name === "issuing_country");
+  const visibleDocument = document.filter((field) => {
+    if (field.field_name === "country_code" && issuingCountry) {
+      const cc = (displayValue(field) || field.value || "").trim().toUpperCase();
+      const ic = (displayValue(issuingCountry) || issuingCountry.value || "").trim().toUpperCase();
+      if (cc && ic && cc === ic) return false;
+    }
+    return true;
+  });
   const copyAll = () => {
     void copyText(
       allFields
@@ -222,20 +225,9 @@ export function Results({ result: original, onHighlight }: {
       );
   };
   const exportJson = () => {
-    const withDisplay = (field: FieldValue): FieldValue => ({
-      ...field,
-      english_label: fieldHeading(field, result.document_type),
-      display_value: displayValue(field) || null,
-    });
-    const exported = {
-      ...result,
-      fields: Object.fromEntries(
-        Object.entries(result.fields).map(([name, field]) => [name, withDisplay(field)]),
-      ),
-      other_fields: result.other_fields.map(withDisplay),
-    };
+    const payload = Object.keys(edits).length > 0 ? result : original;
     const url = URL.createObjectURL(
-      new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" }),
+      new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
     );
     const anchor = documentElement(url, "doculens-results.json");
     anchor.click();
@@ -307,14 +299,14 @@ export function Results({ result: original, onHighlight }: {
           </div>
         </section>
       )}
-      {document.length > 0 && (
+      {visibleDocument.length > 0 && (
         <section className="field-section">
           <h4>
             <FileCheck2 size={14} />
             Document details
           </h4>
           <div className="fields-grid">
-            {document.map((field) => (
+            {visibleDocument.map((field) => (
               <FieldRow
                 key={field.field_name}
                 field={field}

@@ -113,13 +113,13 @@ def test_printed_country_is_kept_without_mrz_cross_check():
 def test_printed_code_conflict_does_not_overwrite_print():
     _, fields = output([row("Country Code: IND"), *mrz_rows("USA", "IND")])
     assert fields["country_code"].value == "IND"
-    assert fields["country_code"].status == "detected"
+    assert fields["country_code"].status == "conflicting"
 
 
 def test_printed_nationality_is_independent_of_mrz_and_issuer():
     _, fields = output([row("Nationality: Indian"), *mrz_rows("USA", "VNM")])
     assert fields["nationality"].value == "Indian"
-    assert fields["nationality"].status == "detected"
+    assert fields["nationality"].status == "conflicting"
     assert fields["country_code"].value == "USA"
     assert fields["country_code"].status != "conflicting"
 

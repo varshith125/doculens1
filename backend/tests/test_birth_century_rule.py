@@ -36,7 +36,7 @@ def test_birth_rule_reaches_final_output_and_preserves_raw_mrz(raw, expected):
     assert birth.status == "uncertain"
     assert result["mrz"].fields["date_of_birth"] == raw
     expiry = result["fields"]["date_of_expiry"]
-    assert expiry.value == expiry.normalized_value == "1930-04-15"
+    assert expiry.value == expiry.normalized_value == "2030-04-15"
     assert expiry.raw == "300415"
     assert "date_of_issue" not in result["fields"]
 
@@ -75,8 +75,8 @@ def test_birth_from_unchecked_mrz_stays_uncertain_after_formatting():
 @pytest.mark.parametrize("raw,expected,display", [
     ("000229", "2000-02-29", "29-February-2000"),
     ("261231", "2026-12-31", "31-December-2026"),
-    ("270101", "1927-01-01", "01-January-1927"),
-    ("300415", "1930-04-15", "15-April-1930"),
+    ("270101", "2027-01-01", "01-January-2027"),
+    ("300415", "2030-04-15", "15-April-2030"),
     ("930903", "1993-09-03", "03-September-1993"),
     ("991231", "1999-12-31", "31-December-1999"),
 ])
@@ -111,6 +111,6 @@ def test_expiry_from_unchecked_mrz_stays_uncertain():
 
 
 def test_century_rule_keeps_expiry_before_birth_visible_as_a_warning():
-    result = prepare_output(extract_fields(document("620801", "300415")))
-    assert result["fields"]["date_of_expiry"].normalized_value == "1930-04-15"
+    result = prepare_output(extract_fields(document("250101", "900101")))
+    assert result["fields"]["date_of_expiry"].normalized_value == "1990-01-01"
     assert result["fields"]["date_of_expiry"].validation["birth_on_or_before_expiry"] is False

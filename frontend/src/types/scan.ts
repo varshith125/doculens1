@@ -126,6 +126,7 @@ export interface Health {
   retention_seconds: number;
   max_upload_mb: number;
   version: string;
+  optional_engines?: Record<string, boolean>;
 }
 export interface Uploads {
   front: File | null;

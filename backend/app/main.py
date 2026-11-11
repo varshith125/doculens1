@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -25,6 +26,18 @@ from app.services.ocr import OCRService
 from app.services.pipeline import run_scan
 
 Owner = Annotated[str, Depends(require_owner)]
+logger = logging.getLogger(__name__)
+
+
+def optional_engines(engine: OCRService, config: Settings) -> dict[str, bool]:
+    """Which optional engines can run here; probes are cached by each service."""
+    def available(name: str) -> bool:
+        service = getattr(engine, name, None)
+        return bool(service is not None and service.is_available())
+
+    return {
+        "tesseract": available("tesseract"),
+    }
 
 
 def create_app(settings: Settings | None = None, ocr: OCRService | None = None) -> FastAPI:
@@ -36,6 +49,11 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
         fast_text=config.ocr_fast_text,
         arabic_model_path=config.arabic_model_path,
         arabic_dictionary_path=config.arabic_dictionary_path,
+        enable_tesseract=config.enable_tesseract_backup,
+        tesseract_cmd=config.tesseract_cmd,
+        tessdata_dir=config.tessdata_dir,
+        tesseract_language=config.tesseract_language,
+        tesseract_timeout=config.tesseract_timeout_seconds,
     )
     store = ScanStore(
         config.retention_seconds, config.max_active_scans, config.max_storage_mb * 1024**2
@@ -48,6 +66,29 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
         )
         try:
             await anyio.to_thread.run_sync(engine.warmup)
+
+            def _warmup_semantic():
+                try:
+                    from app.extractors.dynamic_extractor import _schema_vectors
+                    from app.extractors.semantic_model import get_encoder
+                    encoder = get_encoder(config.semantic_models_dir)
+                    encoder.encode(["NAME"])
+                    encoder.english_probability("NAME")
+                    _schema_vectors(encoder)
+                except Exception:
+                    pass
+
+            await anyio.to_thread.run_sync(_warmup_semantic)
+            requested = {
+                "tesseract": config.enable_tesseract_backup,
+            }
+            usable = await anyio.to_thread.run_sync(optional_engines, engine, config)
+            for name, wanted in requested.items():
+                if wanted and not usable[name]:
+                    logger.warning(
+                        "Optional engine %r is enabled but unavailable on this machine; "
+                        "scans continue without it.", name,
+                    )
         except Exception:
             if config.ocr_models_dir or config.ocr_medium_det_path or config.ocr_medium_rec_path:
                 application.state.executor.shutdown(wait=False, cancel_futures=True)
@@ -107,6 +148,7 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
             "retention_seconds": config.retention_seconds,
             "max_upload_mb": config.max_upload_mb,
             "version": "1.0.0",
+            "optional_engines": optional_engines(engine, config),
         }
 
     @app.post("/api/v1/session")
@@ -164,7 +206,7 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
                 job = store.create(owner, uploads)
             except CapacityError as exc:
                 raise HTTPException(429, str(exc)) from None
-            app.state.executor.submit(run_scan, job, uploads, parsed, store, engine)
+            app.state.executor.submit(run_scan, job, uploads, parsed, store, engine, config)
             return {"scan_id": job.scan_id, "status": job.status, "stage": job.stage}
         finally:
             await front.close()

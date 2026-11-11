@@ -49,6 +49,8 @@ def prepare_output(extracted: dict) -> dict:
             if field.value_kind == "assembled":
                 field.display_label += " (assembled)"
         field.raw = field.observed_value
+        if field.validation.get("date_order_ambiguous") and not field.normalized_value:
+            field.value = field.display_value = None
         if not field.bounding_box:
             source = "mrz" if field.value_kind == "mrz" else "visual"
             field.bounding_box = next((item.bounding_box for item in field.evidence
@@ -59,10 +61,6 @@ def prepare_output(extracted: dict) -> dict:
         if field.value is None:
             continue
         key = field.field_name
-        if key in {"surname", "given_names", "first_name", "middle_names", "full_name"}:
-            field.value = field.value.upper()
-            field.display_value = field.value
-            field.normalization_basis = "Uppercase output; original spelling remains in raw and evidence."
         if key in {"nationality", "issuing_country", "country_code"}:
             # Keep ICAO and ISO representations separate. In particular D<<
             # encodes Germany in the MRZ; replacing it with DEU loses that reading.
@@ -109,9 +107,20 @@ def prepare_output(extracted: dict) -> dict:
                 # Retain the selected reading without claiming a normalized date
                 # or inventing an MRZ century. Unresolved associations stay empty.
                 field.display_value = field.display_value or field.observed_value or field.value
+                field.value = None
                 if field.status != "conflicting":
                     field.status = "uncertain"
                 field.reason = (field.reason or "") + " Full date unavailable; the source reading is retained without normalization."
+    from app.extractors.field_extractor import _same_value
+    for field in extracted["fields"].values():
+        if field.field_name != "full_name" and "source_agreement" not in field.validation:
+            visual_ev = [e for e in field.evidence if e.source == "visual"]
+            mrz_ev = [e for e in field.evidence if e.source == "mrz"]
+            if visual_ev and mrz_ev and field.value:
+                mrz_val = mrz_ev[0].candidate_value or mrz_ev[0].raw_text or ""
+                field.validation["source_agreement"] = _same_value(
+                    field.field_name, field.value, mrz_val
+                )
     agreements = [f.validation["source_agreement"] for f in extracted["fields"].values()
                   if f.validation.get("source_agreement") is not None
                   and any(item.source == "visual" for item in f.evidence)

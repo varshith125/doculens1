@@ -92,8 +92,15 @@ def _multilingual_caption(text: str) -> LabelMatch | None:
     heading, colon, value = _partition_caption(text)
     if len(heading) > 220:
         return None
+    # OCR can read printed caption separators as other Unicode symbols.
+    # Interpret them only in this candidate heading: every resulting segment
+    # must still match an equivalent caption below. Preserve the original
+    # heading and any explicit value, including symbols in the value itself.
+    separated_heading = "".join(
+        ";" if unicodedata.category(char).startswith("S") else char for char in heading
+    )
     segments = [part.strip() for part in re.split(
-        r"[/·•|;+]|\s[-–—]\s|(?<=\))\s+", heading,
+        r"[/·•|;+]|\s[-–—]\s|(?<=\))\s+", separated_heading,
     ) if part.strip()]
     if len(segments) < 2:
         return None

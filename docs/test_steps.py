@@ -115,7 +115,7 @@ print("Latest backend date rules loaded. Run Cells 3-9 in order to refresh the r
 # The website starts from backend/. Load the same .env explicitly in the notebook.
 from app.core.config import Settings
 from app.schemas.models import ScanOptions
-settings = Settings(_env_file=project / "backend" / ".env")
+settings = Settings()
 scan_options = ScanOptions()
 print("Website and notebook use the same OCR model configuration from backend/.env.")
 print("Date order:", scan_options.date_order, "| Language:", scan_options.language)

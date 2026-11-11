@@ -67,12 +67,8 @@ export function TechnicalDetails({
             {fieldHeading(field, result.document_type)} ·{" "}
             {label(field.status)}
           </h4>
-          {field.reason && <p>{field.reason}</p>}
           {field.value_kind === "assembled" && field.value && (
             <p>Derived name (not a printed field): <code dir="auto">{field.value}</code></p>
-          )}
-          {field.display_label && (
-            <p>Printed heading: <span dir="auto">{field.display_label}</span></p>
           )}
           {field.normalized_value && (
             <p>

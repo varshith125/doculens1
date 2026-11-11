@@ -90,7 +90,7 @@ def test_does_not_jump_across_intervening_label():
     result = extract_fields(
         [line("Surname", width=100), line("Nationality", y=25, width=100), line("UTO", y=50)]
     )
-    assert "surname" not in result["fields"]
+    assert result["fields"]["surname"].value is None
     assert result["fields"]["nationality"].value == "UTO"
 
 
@@ -98,12 +98,12 @@ def test_distant_value_and_opposite_side_are_not_matched():
     result = extract_fields(
         [line("Surname"), line("DISTANT", x=800, y=300), line("OTHER SIDE", y=25, side="back")]
     )
-    assert "surname" not in result["fields"]
+    assert result["fields"]["surname"].value is None
 
 
 def test_labels_are_never_values():
     result = extract_fields([line("Surname"), line("Given names", y=25), line("Nationality", y=50)])
-    assert result["fields"] == {}
+    assert all(field.value is None for field in result["fields"].values())
 
 
 def test_does_not_guess_meaning_of_unlabelled_date_or_number():
@@ -164,8 +164,8 @@ def test_mrz_names_not_validated_and_birth_century_uses_fixed_rule():
     assert result["fields"]["surname"].status == "detected"
     assert result["fields"]["date_of_birth"].value == "1974-08-12"
     assert result["fields"]["date_of_birth"].observed_value == "740812"
-    assert result["fields"]["date_of_expiry"].value == "1930-04-15"
-    assert result["fields"]["date_of_expiry"].normalized_value == "1930-04-15"
+    assert result["fields"]["date_of_expiry"].value == "2030-04-15"
+    assert result["fields"]["date_of_expiry"].normalized_value == "2030-04-15"
     assert result["fields"]["date_of_birth"].status == "uncertain"
     assert "date_of_issue" not in result["fields"]
 
@@ -186,7 +186,7 @@ def test_visual_reading_is_kept_without_cross_checking_mrz():
     field = result["fields"]["document_number"]
     assert field.value == "X12345678"
     assert any("X12345678" in item.raw_text for item in field.evidence)
-    assert field.status == "detected"
+    assert field.status == "conflicting"
     assert "source_agreement" not in field.validation
     assert result["mrz"].raw_lines
 

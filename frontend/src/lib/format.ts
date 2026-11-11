@@ -10,14 +10,14 @@ const fieldLabels: Record<string, string> = {
   full_name: "Full Name", given_names: "Given Names", first_name: "First Name",
   middle_names: "Middle Names", surname: "Surname", family_name: "Family Name",
   nationality: "Nationality", issuing_country: "Issuing Country",
-  country_code: "Issuing Country Code", date_of_birth: "Date of Birth",
+  country_code: "Issuing Country Code", date_of_birth: "Date Of Birth",
   date_of_issue: "Date of Issue", date_of_expiry: "Date of Expiry",
   place_of_birth: "Place of Birth", place_of_origin: "Place of Origin", sex: "Sex",
   document_number: "Document Number", national_id_number: "National ID Number",
   mrz_document_number: "MRZ Document Number",
-  emirates_id_number: "Emirates ID Number", personal_number: "Personal Number",
+  emirates_id_number: "Emirates Id Number", personal_number: "Personal Number",
   card_number: "Card Number", previous_passport_number: "Previous Passport Number",
-  file_number: "File Number", book_number: "Book Number", document_code: "Document Type Code",
+  file_number: "File Number", book_number: "Book Number", document_code: "Document Code",
   issuing_authority: "Issuing Authority", authority_code: "Authority Code",
   place_of_issue: "Place of Issue", occupation: "Occupation", employer: "Employer",
   father_name: "Father's Name", mother_name: "Mother's Name", spouse_name: "Spouse's Name",
@@ -33,6 +33,11 @@ export function fieldHeading(field: FieldValue, documentType?: string): string {
   let heading = fieldLabels[key] ?? "Other Printed Field";
   // Keep the printed name distinction while rendering a clean English caption.
   const printed = field.display_label ?? "";
+  if (printed) {
+    if (/\bdate\s+of\s+issue\b/i.test(printed)) return "Date of Issue";
+    if (/\bdate\s+of\s+birth\b/i.test(printed)) return "Date of Birth";
+    if (/\bdate\s+of\s+expiry\b/i.test(printed)) return "Date of Expiry";
+  }
   if (key === "full_name" && field.value_kind !== "assembled"
       && !/\bfull\s+name\b/i.test(printed) && /\bname\b/i.test(printed)) heading = "Name";
   if (key === "surname" && /\bfamily\s+name\b/i.test(printed)) heading = "Family Name";
@@ -91,11 +96,19 @@ export function dateOrderWarning(field: FieldValue): string | null {
 
 export function displayValue(field: FieldValue): string {
   if (field.value === null || field.value_kind === "unresolved") return "";
+  if (field.field_name === "emirates_id_number") {
+    const raw = field.display_value ?? field.value ?? "";
+    if (/^784\d{12}$/.test(raw)) {
+      return `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 14)}-${raw.slice(14)}`;
+    }
+    return raw;
+  }
   if (dateFields.includes(field.field_name)) {
     // Only established full dates are formatted. Never derive a century here.
-    const normalized = field.normalized_value ?? (!isMRZDate(field) ? field.value : null);
-    const formatted = normalized ? fullDate(normalized) : null;
-    if (formatted) return formatted;
+    if (field.normalized_value) {
+      const formatted = fullDate(field.normalized_value);
+      if (formatted) return formatted;
+    }
     // Honor the backend's established display date too, without reparsing raw
     // numeric text in the browser or choosing a date order a second time.
     if (!isMRZDate(field) && field.validation?.calendar_date !== false
@@ -103,9 +116,35 @@ export function displayValue(field: FieldValue): string {
       const display = fullDate(field.display_value);
       if (display) return display;
     }
-    return field.observed_value ?? field.value ?? "";
+    if (field.value) {
+      const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(field.value);
+      if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    }
+    return field.display_value ?? field.value ?? "";
   }
   return field.display_value ?? field.value ?? "";
+}
+
+export function missingValueMessage(field: FieldValue): string {
+  if (field.status === "conflicting") return "Multiple readings available in Technical details";
+  if (field.validation?.heading_unresolved) {
+    return "Possible text found — field heading unclear";
+  }
+  if (dateFields.includes(field.field_name) && field.status === "uncertain") {
+    if (field.validation?.calendar_date === false) {
+      return "Date reading is invalid — check the original";
+    }
+    const hasCandidates = (field.evidence && field.evidence.length > 0) || Boolean(field.raw) || Boolean(field.observed_value);
+    return hasCandidates ? "Unreadable" : "Full date unavailable";
+  }
+  if (field.source === "mrz" && field.evidence.length > 0 && field.status === "uncertain") {
+    return "MRZ reading could not be confirmed";
+  }
+  if (field.status === "uncertain") {
+    const hasCandidates = (field.evidence && field.evidence.length > 0) || Boolean(field.raw) || Boolean(field.observed_value);
+    return hasCandidates ? "Unreadable" : "Not available";
+  }
+  return "Not available";
 }
 
 export function copyValue(field: FieldValue): string {

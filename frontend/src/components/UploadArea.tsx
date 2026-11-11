@@ -34,8 +34,8 @@ export function UploadArea({
       return;
     }
     const next = files[0];
-    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(next.type)) {
-      setError("Use a JPG, PNG, WebP image or single-page PDF.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(next.type)) {
+      setError("Use a JPG, PNG or WebP image.");
       return;
     }
     if (next.size > maxMb * 1024 * 1024) {
@@ -54,10 +54,10 @@ export function UploadArea({
         ref={input}
         type="file"
         className="sr-only"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp"
         aria-label={`Upload document ${side}`}
         aria-describedby={error ? `upload-error-${side}` : undefined}
-        aria-invalid={Boolean(error)}
+        aria-invalid={Boolean(error) ? "true" : "false"}
         disabled={disabled}
         onChange={(event) => {
           choose(event.target.files);
@@ -168,7 +168,7 @@ export function UploadArea({
               Browse files <ArrowUpRight size={17} />
             </Button>
             <span className="format-hint">
-              JPG, PNG, WebP or PDF <span>·</span> Up to {maxMb} MB
+              JPG, PNG or WebP <span>·</span> Up to {maxMb} MB
             </span>
           </>
         )}

@@ -1,0 +1,1963 @@
+{
+  "status": "complete",
+  "scoring": "Existing notebook expected values, not independently re-annotated. Normalized scoring uses existing case/spacing, date, country, name, and number equivalence rules. Strict scoring compares exact strings. Two generic Other document ID labels have no unambiguous output mapping and are unscored. Obscured/unavailable fields excluded. Extra unlabelled outputs are not evaluated.",
+  "settings": {
+    "fast_text": false,
+    "medium_detector": "D:/DocuLens-OCR-Modelsmedium-det/inference (1).onnx",
+    "medium_recognizer": "D:/DocuLens-OCR-Modelsmedium/inference.onnx",
+    "docres": false,
+    "telescope": false,
+    "tesseract_enabled": true
+  },
+  "documents": [
+    {
+      "id": "Photo 01",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 17,
+      "strict_correct": 11,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 554.22,
+        "detection_and_correction": 101.39,
+        "image_encoding": 41.5,
+        "ocr": 7523.97,
+        "field_extraction": 2472.01,
+        "processing_total": 10701.57,
+        "queue_wait": 0.0,
+        "total": 10703.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 10.71,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 02",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 17,
+      "strict_correct": 11,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 461.12,
+        "detection_and_correction": 136.13,
+        "image_encoding": 73.24,
+        "ocr": 8072.96,
+        "field_extraction": 889.89,
+        "processing_total": 9633.77,
+        "queue_wait": 0.0,
+        "total": 9641.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 9.64,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 03",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 11,
+      "strict_correct": 6,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 112.74,
+        "detection_and_correction": 89.02,
+        "image_encoding": 20.41,
+        "ocr": 8150.37,
+        "mrz_recovery": 3380.32,
+        "field_extraction": 435.83,
+        "processing_total": 12189.23,
+        "queue_wait": 0.0,
+        "total": 12187.0
+      },
+      "mrz_checksum_valid": false,
+      "seconds": 12.19,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 04",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 3,
+      "strict_correct": 1,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Surname / last name",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Given names",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Nationality",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Place of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document type code",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 0.74,
+        "detection_and_correction": 6.47,
+        "image_encoding": 0.95,
+        "ocr": 7038.15,
+        "mrz_recovery": 3346.39,
+        "field_extraction": 412.16,
+        "processing_total": 10808.82,
+        "queue_wait": 0.0,
+        "total": 10813.0
+      },
+      "mrz_checksum_valid": false,
+      "seconds": 10.81,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 05",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 12,
+      "strict_correct": 9,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 493.96,
+        "detection_and_correction": 108.18,
+        "image_encoding": 50.33,
+        "ocr": 7916.11,
+        "mrz_recovery": 4784.81,
+        "field_extraction": 1259.78,
+        "processing_total": 14613.6,
+        "queue_wait": 0.0,
+        "total": 14625.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 14.62,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 06",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 11,
+      "strict_correct": 6,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing country code",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 124.24,
+        "detection_and_correction": 44.33,
+        "image_encoding": 6.25,
+        "ocr": 6508.2,
+        "mrz_recovery": 3953.42,
+        "field_extraction": 820.31,
+        "processing_total": 11476.48,
+        "queue_wait": 0.0,
+        "total": 11484.0
+      },
+      "mrz_checksum_valid": false,
+      "seconds": 11.48,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 08",
+      "scored": 10,
+      "excluded": 9,
+      "status": "completed",
+      "correct": 5,
+      "strict_correct": 2,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Place of issue",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 14.31,
+        "detection_and_correction": 44.12,
+        "image_encoding": 8.41,
+        "ocr": 5746.01,
+        "field_extraction": 744.3,
+        "processing_total": 6583.72,
+        "queue_wait": 0.0,
+        "total": 6578.0
+      },
+      "mrz_checksum_valid": null,
+      "seconds": 6.59,
+      "unscored_no_mapping": 1
+    },
+    {
+      "id": "Photo 09",
+      "scored": 16,
+      "excluded": 4,
+      "status": "completed",
+      "correct": 0,
+      "strict_correct": 0,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Surname / last name",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Given names",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Nationality",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Sex",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Place of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document type code",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 1.53,
+        "detection_and_correction": 23.4,
+        "image_encoding": 4.52,
+        "ocr": 5034.64,
+        "mrz_recovery": 2306.77,
+        "field_extraction": 159.2,
+        "processing_total": 7559.8,
+        "queue_wait": 0.0,
+        "total": 7563.0
+      },
+      "mrz_checksum_valid": null,
+      "seconds": 7.56,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 10",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 12,
+      "strict_correct": 10,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 0.81,
+        "detection_and_correction": 10.47,
+        "image_encoding": 1.97,
+        "ocr": 8572.99,
+        "field_extraction": 518.6,
+        "processing_total": 9112.51,
+        "queue_wait": 0.0,
+        "total": 9125.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 9.11,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 12",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 12,
+      "strict_correct": 10,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 0.87,
+        "detection_and_correction": 9.97,
+        "image_encoding": 2.09,
+        "ocr": 7650.28,
+        "field_extraction": 307.5,
+        "processing_total": 7978.85,
+        "queue_wait": 0.0,
+        "total": 7968.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 7.98,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 13",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 13,
+      "strict_correct": 10,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 1.95,
+        "detection_and_correction": 32.52,
+        "image_encoding": 5.67,
+        "ocr": 11722.24,
+        "mrz_recovery": 3498.06,
+        "field_extraction": 1217.63,
+        "processing_total": 16497.2,
+        "queue_wait": 16.0,
+        "total": 16516.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 16.5,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 14",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 6,
+      "strict_correct": 5,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Sex",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Place of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 5.48,
+        "detection_and_correction": 19.49,
+        "image_encoding": 5.51,
+        "ocr": 13399.65,
+        "mrz_recovery": 3216.54,
+        "field_extraction": 939.43,
+        "processing_total": 17614.05,
+        "queue_wait": 0.0,
+        "total": 17609.0
+      },
+      "mrz_checksum_valid": false,
+      "seconds": 17.62,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 16",
+      "scored": 15,
+      "excluded": 4,
+      "status": "completed",
+      "correct": 6,
+      "strict_correct": 6,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Document",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 0.88,
+        "detection_and_correction": 11.24,
+        "image_encoding": 2.22,
+        "ocr": 6047.43,
+        "mrz_recovery": 4186.16,
+        "field_extraction": 527.38,
+        "processing_total": 10783.57,
+        "queue_wait": 0.0,
+        "total": 10797.0
+      },
+      "mrz_checksum_valid": false,
+      "seconds": 10.79,
+      "unscored_no_mapping": 1
+    },
+    {
+      "id": "Photo 17",
+      "scored": 17,
+      "excluded": 3,
+      "status": "completed",
+      "correct": 16,
+      "strict_correct": 11,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 7.8,
+        "detection_and_correction": 96.77,
+        "image_encoding": 8.89,
+        "ocr": 10190.52,
+        "field_extraction": 1006.85,
+        "processing_total": 11330.39,
+        "queue_wait": 0.0,
+        "total": 11328.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 11.33,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 18",
+      "scored": 16,
+      "excluded": 4,
+      "status": "completed",
+      "correct": 15,
+      "strict_correct": 8,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Nationality",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Passport number",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Issuing country",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 1.77,
+        "detection_and_correction": 31.46,
+        "image_encoding": 4.92,
+        "ocr": 9342.31,
+        "field_extraction": 1485.14,
+        "processing_total": 10883.74,
+        "queue_wait": 0.0,
+        "total": 10891.0
+      },
+      "mrz_checksum_valid": true,
+      "seconds": 10.89,
+      "unscored_no_mapping": 0
+    },
+    {
+      "id": "Photo 20",
+      "scored": 15,
+      "excluded": 5,
+      "status": "completed",
+      "correct": 12,
+      "strict_correct": 8,
+      "field_checks": [
+        {
+          "field": "Full name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Surname / last name",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Given names",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Date of birth",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Sex",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Place of birth",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of issue",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Date of expiry",
+          "correct": true,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "Issuing authority",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        },
+        {
+          "field": "Place of issue",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Document type code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "Authority code",
+          "correct": true,
+          "strict_correct": true,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 1",
+          "correct": false,
+          "strict_correct": false,
+          "missing": false
+        },
+        {
+          "field": "MRZ line 2",
+          "correct": false,
+          "strict_correct": false,
+          "missing": true
+        }
+      ],
+      "timings_ms": {
+        "image_decode": 43.25,
+        "detection_and_correction": 203.75,
+        "image_encoding": 32.27,
+        "ocr": 15452.78,
+        "mrz_recovery": 4788.13,
+        "field_extraction": 1430.81,
+        "processing_total": 21951.48,
+        "queue_wait": 0.0,
+        "total": 21953.0
+      },
+      "mrz_checksum_valid": false,
+      "seconds": 21.96,
+      "unscored_no_mapping": 0
+    }
+  ],
+  "warmup_seconds": 4.83,
+  "summary": {
+    "documents_evaluated": 16,
+    "documents_completed": 16,
+    "scored_fields": 259,
+    "correct_fields": 168,
+    "accuracy_percent": 64.86,
+    "strict_correct_fields": 114,
+    "strict_accuracy_percent": 44.02,
+    "fully_correct_documents": 2,
+    "unscored_no_mapping": 2,
+    "total_scan_seconds": 189.78,
+    "mean_scan_seconds": 11.86,
+    "min_scan_seconds": 6.59,
+    "max_scan_seconds": 21.96,
+    "missing_fields": 60,
+    "wrong_nonempty_fields": 31
+  }
+}

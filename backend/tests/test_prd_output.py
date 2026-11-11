@@ -16,7 +16,7 @@ def test_prd_names_dates_and_nationality_preserve_originals():
         row("Date of Birth: 12 AUG 1988", 120),
     ]))
     fields = result["fields"]
-    assert fields["given_names"].value == "ALEX JAMES"
+    assert fields["given_names"].value == "Alex James"
     assert fields["given_names"].raw == "Alex James"
     assert fields["date_of_birth"].value == "1988-08-12"
     assert fields["date_of_birth"].raw == "12 AUG 1988"

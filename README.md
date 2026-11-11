@@ -15,7 +15,8 @@ DocuLens is an assistance tool. It does not verify a person's identity, authenti
 - Handle different label and value sizes: relative text size can help associate a smaller caption with a larger printed answer. There is no fixed minimum label-font cutoff; very small or unclear text may still be missed by OCR.
 - Show uncertainty and conflicting readings instead of silently treating them as verified facts.
 - Copy reviewed values or export the result as JSON.
-- Run OCR and image processing locally with OpenCV and ONNX Runtime; no hosted OCR or generative AI service is used by the scan pipeline.
+- Run OCR and image processing locally with OpenCV and ONNX Runtime. No document image or text is sent to a hosted service.
+- An optional local Tesseract backup engine is discovered at startup; `GET /api/v1/health` reports whether it is usable on this machine.
 
 ## Requirements
 

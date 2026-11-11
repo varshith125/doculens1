@@ -16,6 +16,13 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "no. de pasaporte",
         "passport number",
         "passport no",
+        "passport no.",
+        "passeport no",
+        "passeport no.",
+        "pass-nr",
+        "pass-nr.",
+        "pass nr",
+        "pass nr.",
         "passport n°",
         "passport nr",
         "document number",
@@ -27,13 +34,15 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "emirates_id_number": (
         "emirates id number",
+        "رقم الهوية",
     ),
     "national_id_number": (
         "id number",
         "id no",
         "identity number",
         "national id number",
-        "رقم الهوية",
+        "d number",
+        "d no",
     ),
     "surname": (
         "surname",
@@ -44,7 +53,19 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "last name",
         "nom de famille",
         "nom",
+        "nom de naissance",
+        "de naissance",
+        "geburtsname",
+        "name at birth",
         "apellidos",
+        "sloinne",
+        "nachname",
+        "prijmeni",
+        "eponymo",
+        "nume",
+        "apelido",
+        "nazwisko",
+        "фамилия",
         "اسم العائلة",
         "اللقب",
     ),
@@ -62,6 +83,14 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "prenoms",
         "prenom",
         "nombres",
+        "forenames",
+        "first names",
+        "tusainmneacha",
+        "leadain",
+        "jmeno",
+        "onoma",
+        "prenume",
+        "imie",
         "الاسم الاول",
     ),
     "first_name": ("first name", "first names"),
@@ -109,11 +138,14 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "place of birth",
         "birthplace",
         "geboorteplaats",
+        "geburtsort",
         "lieu de naissance",
+        "place of bith",
+        "place of bithy",
         "lugar de nacimiento",
         "مكان الميلاد",
     ),
-    "sex": ("sex", "sexe", "sexo", "gender", "geslacht", "الجنس"),
+    "sex": ("sex", "sexe", "sexo", "gender", "geslacht", "geschlecht", "الجنس"),
     "date_of_issue": (
         "date of issuance",
         "issuance date",
@@ -126,7 +158,11 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "issued on",
         "datum van afgifte",
         "afgiftedatum",
+        "ausstellungsdatum",
+        "aussteliungsdatum",
         "date de delivrance",
+        "date d'emission",
+        "date d emission",
         "fecha de expedicion",
         "date of issue date de delivrance",
         "تاريخ الاصدار",
@@ -137,10 +173,13 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
         "expiry",
         "expiration",
         "date of expiry",
+        "date of explry",
         "expiry date",
         "expiration date",
         "date of expiration",
         "valid until",
+        "gultig bis",
+        "gültig bis",
         "geldig tot",
         "vervaldatum",
         "date d expiration",
@@ -171,7 +210,7 @@ ADDITIONAL_LABELS: dict[str, tuple[str, ...]] = {
         "issuing authority code", "authority code", "code d'autorite",
         "code de l'autorite", "codigo de autoridad", "behordencode", "رمز جهة الاصدار",
     ),
-    "card_number": ("card number", "card no"),
+    "card_number": ("card number", "card no", "cardnumbr", "cardnbr", "رقم البطاقة"),
     "previous_passport_number": ("previous passport no", "previous passport number"),
     "file_number": ("file number", "numero de dossier"),
     "book_number": ("book number", "book no", "registre"),
@@ -259,6 +298,31 @@ COUNTRY_ALIASES = {
     "ugandan": "UGA",
     "uga": "UGA",
 }
+
+
+# Printed sex markings, folded. A heading-specific table applies only when that
+# heading wording is printed, never from nationality or a person's name.
+SEX_MARKINGS = {
+    "m": "M", "male": "M", "masculin": "M", "man": "M", "mannelijk": "M",
+    "f": "F", "female": "F", "feminin": "F", "vrouw": "F", "vrouwelijk": "F",
+    "x": "X", "ذكر": "M", "انثى": "F",
+}
+SEX_MARKINGS_BY_HEADING = {"geslacht": {"v": "F"}}
+
+
+def normalize_sex(value: str, heading: str = "") -> str | None:
+    """Resolve a printed sex marking; paired translations must agree."""
+    tokens = [part.strip() for part in fold_text(value).split("/")]
+    markings = dict(SEX_MARKINGS)
+    folded_heading = fold_text(heading)
+    for wording, extra in SEX_MARKINGS_BY_HEADING.items():
+        # The heading's own wording, or its explicit translated pair, selects the table.
+        pair = set(extra) | {key for key, code in SEX_MARKINGS.items()
+                             if len(key) == 1 and code in extra.values()}
+        if wording in folded_heading or set(tokens) == pair:
+            markings.update(extra)
+    readings = {markings.get(token) for token in tokens}
+    return readings.pop() if len(readings) == 1 and None not in readings else None
 
 
 def fold_text(value: str) -> str:

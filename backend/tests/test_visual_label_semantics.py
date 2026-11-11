@@ -108,6 +108,57 @@ def test_larger_value_beats_nearby_small_unrecognized_annotation():
     assert fields([label, small, value])["place_of_birth"].value == "Berlin"
 
 
+@pytest.mark.parametrize("separator", ["\u00d7", "\u2299", "\u2726"])
+@pytest.mark.parametrize("caption,key", [
+    (("Place of Origin", "Lieu d'origine"), "place_of_origin"),
+    (("Place of Birth", "Lieu de naissance"), "place_of_birth"),
+    (("Nationality", "Nacionalidade"), "nationality"),
+])
+def test_symbols_between_equivalent_captions_are_not_inline_values(separator, caption, key):
+    heading = f" {separator} ".join(caption)
+    match = match_label(heading)
+    assert match.field_name == key
+    assert match.value == ""
+    assert match.display_label == heading
+
+
+@pytest.mark.parametrize("scale", [0.5, 1, 3])
+@pytest.mark.parametrize("angle", [-12, 0, 12])
+def test_noisy_small_translations_do_not_conflict_with_larger_labeled_value(scale, angle):
+    def positioned(text, x=180, y=0, width=180, height=8):
+        return row(text, x=x, y=y, width=width, height=height, scale=scale, angle=angle)
+
+    heading = positioned("He natort \u2022Lieu d'origine \u00d7 Luogo di attinenza", y=220, width=184)
+    continuation = positioned("Lieu d'origin Place of origin", y=227, width=124)
+    printed = positioned("TESTVILLE ZZ", x=179, y=236, width=90, height=13)
+    lines = [
+        positioned("Surname: EXAMPLE", y=100),
+        positioned("Nationality: UTO", y=140),
+        heading, continuation, printed,
+        positioned("Issuing Authority", y=293),
+        positioned("TEST OFFICE", x=179, y=303, width=110, height=18),
+    ]
+    actual = fields(lines)
+    origin = actual["place_of_origin"]
+    assert origin.value == printed.text
+    assert origin.status != "conflicting"
+    assert origin.bounding_box == printed.bounding_box
+    assert actual["issuing_authority"].value == "TEST OFFICE"
+    assert heading.text == "He natort \u2022Lieu d'origine \u00d7 Luogo di attinenza"
+    assert any(e.label_fragments for e in origin.evidence)
+
+
+@pytest.mark.parametrize("value", ["A\u00d7B", "TEST\u2726VILLE", "Bonn / Lyon"])
+def test_caption_symbol_handling_preserves_explicit_values(value):
+    match = match_label(f"Place of Origin / Lieu d'origine: {value}")
+    assert match.value == value
+
+
+def test_symbol_does_not_turn_different_headings_into_one_caption():
+    match = match_label("Place of Origin \u00d7 Nationality")
+    assert match.value  # The two fields must not become a caption-only origin row.
+
+
 def test_a_larger_unrelated_field_is_not_selected():
     lines = [row("Place of Birth", width=100), row("Berlin", y=16, height=18, width=75),
              row("Nationality", x=160, width=100), row("INDIAN", x=160, y=16, height=30, width=140)]

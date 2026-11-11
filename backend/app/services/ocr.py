@@ -14,12 +14,13 @@ import numpy as np
 from app.core.config import Settings
 from app.extractors.caption_context import prepare_captions
 from app.extractors.label_matcher import match_label
-from app.extractors.mrz_parser import parse_mrz, passport_name_slots
+from app.extractors.mrz_parser import detect_mrz, parse_mrz, passport_name_slots
 from app.extractors.spatial_matcher import SpatialScores, bounds, spatial_candidates
 from app.extractors.typography import measure_appearance
 from app.patterns.dates import date_context_warning, normalize_date
 from app.schemas.models import OCRLine, OCRObservation, Side
 from app.services.imaging import enhance_for_ocr, rotate_image, text_region_for_ocr
+from app.services.tesseract import TesseractService
 
 
 class OCRUnavailableError(RuntimeError):
@@ -55,6 +56,20 @@ def _malformed_named_date(text: str) -> bool:
     # A digit inside a three-character month can receive another actual OCR reading.
     match = re.fullmatch(r"\d{1,2}\s+([A-Z0-9]{3})\s+\d{4}", text.upper())
     return bool(match and any(c.isdigit() for c in match[1]) and any(c.isalpha() for c in match[1]))
+
+
+def _malformed_numeric_date(text: str) -> bool:
+    """Schedule a reread of date-like digits without assigning them to a field."""
+    text = text.strip()
+    if (not re.fullmatch(r"\d{1,5}(?:\s*[-/.]\s*\d{1,4}){1,2}", text)
+            or not 4 <= sum(char.isdigit() for char in text) <= 10):
+        return False
+    # Do not let date normalization silently repair a merged day/month token
+    # before OCR has had an opportunity to reread the actual printed digits.
+    if any(len(part) > 4 for part in re.split(r"\s*[-/.]\s*", text)):
+        return True
+    _, error = normalize_date(text)
+    return error is not None and "ambiguous" not in error
 
 
 def _observed_month_reading(original: str, retries: list[OCRObservation]) -> OCRObservation | None:
@@ -150,12 +165,28 @@ class OCRService:
         medium_det_path: str | None = None,
         medium_rec_path: str | None = None,
         fast_text: bool | None = None,
+        enable_tesseract: bool | None = None,
+        tesseract_cmd: str | None = None,
+        tessdata_dir: str | None = None,
+        tesseract_language: str | None = None,
+        tesseract_timeout: float | None = None,
+        tesseract_service: TesseractService | None = None,
     ) -> None:
         self._lock = threading.RLock()
         self._engines: dict[str, Any] = {}
         self._ready = False
         settings = Settings()
         self._fast_text = settings.ocr_fast_text if fast_text is None else fast_text
+        # Measured on a 12-thread CPU: 4 threads was fastest and 8-12 were slower,
+        # so the automatic value never exceeds 4. An explicit setting overrides it.
+        self._threads = settings.ocr_threads or min(4, max(2, (os.cpu_count() or 4) // 2))
+        self._tesseract = tesseract_service or TesseractService(
+            tesseract_cmd=settings.tesseract_cmd if tesseract_cmd is None else tesseract_cmd,
+            tessdata_dir=settings.tessdata_dir if tessdata_dir is None else tessdata_dir,
+            language=settings.tesseract_language if tesseract_language is None else tesseract_language,
+            enabled=settings.enable_tesseract_backup if enable_tesseract is None else enable_tesseract,
+            timeout=settings.tesseract_timeout_seconds if tesseract_timeout is None else tesseract_timeout,
+        )
         directory = settings.ocr_models_dir if ocr_models_dir is None else ocr_models_dir
         self._medium_paths = {
             stage: Path(path).expanduser().resolve()
@@ -179,6 +210,10 @@ class OCRService:
     @property
     def ready(self) -> bool:
         return self._ready
+
+    @property
+    def tesseract(self) -> TesseractService:
+        return self._tesseract
 
     @property
     def languages(self) -> list[str]:
@@ -222,11 +257,12 @@ class OCRService:
                 raise OCRUnavailableError(
                     "Bundled OCR models are missing. Reinstall the pinned RapidOCR package."
                 )
+            num_threads = self._threads
             parameters: dict[str, Any] = {
                 "Global.log_level": "error",
                 "Global.text_score": 0.35,
-                "Global.max_side_len": 2400,
-                "EngineConfig.onnxruntime.intra_op_num_threads": 2,
+                "Global.max_side_len": 1536,
+                "EngineConfig.onnxruntime.intra_op_num_threads": num_threads,
                 "EngineConfig.onnxruntime.inter_op_num_threads": 1,
                 **{f"{stage}.model_path": str(path) for stage, path in paths.items()},
             }
@@ -366,12 +402,18 @@ class OCRService:
             self._recover_small_captions(engine, image, lines, side)
             lines = _reading_order(lines)
             measure_appearance(image, lines)
-            self._retry_uncertain_regions(recovery_engine or engine, image, lines)
-            self._retry_mrz_names(recovery_engine or engine, image, lines)
+            self._retry_uncertain_regions(
+                recovery_engine or engine, image, lines,
+                tesseract=self._tesseract,
+            )
+            self._retry_mrz_names(recovery_engine or engine, image, lines, tesseract=self._tesseract)
         return lines
 
     @staticmethod
-    def _retry_mrz_names(engine: Any, image: np.ndarray, lines: list[OCRLine]) -> None:
+    def _retry_mrz_names(
+        engine: Any, image: np.ndarray, lines: list[OCRLine],
+        tesseract: TesseractService | None = None,
+    ) -> None:
         """Bounded OCR of damaged passport name rows and their observed name spans."""
         anchors = [line for line in lines
                    if 25 <= len(line.text.replace(" ", "")) <= 48
@@ -435,6 +477,17 @@ class OCRService:
                 crop = image[top:bottom, a:b]
                 recognize(crop, f"MRZ {name} crop: linear", cv2.INTER_LINEAR, name, box)
                 recognize(crop, f"MRZ {name} crop: cubic", cv2.INTER_CUBIC, name, box)
+                if tesseract and tesseract.is_available():
+                    tess_rec = tesseract.recognize_line(crop, psm=7, whitelist="ABCDEFGHIJKLMNOPQRSTUVWXYZ<")
+                    if tess_rec:
+                        t_text, t_score = tess_rec
+                        t_clean = t_text.replace(" ", "")
+                        if t_clean:
+                            line.observations.append(OCRObservation(
+                                text=t_clean, confidence=max(0.0, min(1.0, t_score)),
+                                method=f"Tesseract fallback: MRZ {name} crop",
+                                field_name=name, bounding_box=box,
+                            ))
             if len(line.observations) > 1:
                 line.review_required = True
                 line.recognition_note = "MRZ name crops were reread; compare the selected components with the original and alternative readings."
@@ -466,7 +519,12 @@ class OCRService:
         crop = image[top:bottom, left:right]
         if crop.size == 0 or min(crop.shape[:2]) < 32:
             return
-        scale = min(2.0, 2400 / max(crop.shape[:2]),
+        # Tiny captions need more enlargement than already-readable value rows.
+        # Scale from detected text height, retaining a bounded pixel budget.
+        small_heights = [bounds(row)[3] - bounds(row)[1] for row in page_rows
+                         if len(row.text) >= 3 and 4 <= bounds(row)[3] - bounds(row)[1] <= 20]
+        target_scale = min(4.0, max(2.0, 36 / float(np.median(small_heights)))) if small_heights else 2.0
+        scale = min(target_scale, 2400 / max(crop.shape[:2]),
                     (3_000_000 / (crop.shape[0] * crop.shape[1])) ** 0.5)
         if scale <= 1.05:
             return
@@ -512,9 +570,14 @@ class OCRService:
                 lines.append(row)
 
     @staticmethod
-    def _retry_uncertain_regions(engine: Any, image: np.ndarray, lines: list[OCRLine]) -> None:
+    def _retry_uncertain_regions(
+        engine: Any, image: np.ndarray, lines: list[OCRLine],
+        tesseract: TesseractService | None = None,
+    ) -> None:
         important: set[int] = set()
-        invalid_dates: set[int] = set()
+        # A damaged numeric date may be confidently wrong while its tiny
+        # heading is unreadable. Do not require that heading to retry the text.
+        invalid_dates: set[int] = {id(line) for line in lines if _malformed_numeric_date(line.text)}
         incomplete_mrz: set[int] = set()
         date_fields: dict[int, set[str]] = {}
         scores: SpatialScores = {}
@@ -584,6 +647,9 @@ class OCRService:
             ),
         )[:6]
         for line in candidates:
+            if id(line) in invalid_dates:
+                line.review_required = True
+                line.recognition_note = "The date-like reading failed format or calendar checks; crop rereads are retained for review."
             try:
                 crop = text_region_for_ocr(image, line.bounding_box)
             except (cv2.error, ValueError):
@@ -628,7 +694,7 @@ class OCRService:
                         method = "Aligned original crop at alternate scale"
                         variant = cv2.resize(crop, alternate_size, interpolation=cv2.INTER_LINEAR)
                 try:
-                    retried = engine(variant, use_det=False, use_cls=True, use_rec=True)
+                    retried = engine(variant, use_det=False, use_cls=False, use_rec=True)
                 except Exception:
                     line.review_required = True
                     line.recognition_note = "An optional regional reread failed; the earlier reading is retained."
@@ -667,8 +733,9 @@ class OCRService:
                 if len(retries) == 2 and retries[0].text == retries[1].text:
                     confidence = min(item.confidence for item in retries)
                     date_recovered = False
-                    if id(line) in invalid_dates and len(date_fields.get(id(line), set())) == 1:
-                        field_name = next(iter(date_fields[id(line)]))
+                    contexts = date_fields.get(id(line), set())
+                    if id(line) in invalid_dates and len(contexts) <= 1:
+                        field_name = next(iter(contexts), None)
                         retry_label = match_label(retries[0].text)
                         original_label = match_label(line.text)
                         # A combined caption/value crop must retain the same
@@ -681,9 +748,10 @@ class OCRService:
                         normalized, error = normalize_date(text)
                         date_recovered = bool(
                             same_label and confidence >= 0.90 and error is None
-                            and date_context_warning(normalized, field_name) is None
+                            and (field_name is None or date_context_warning(normalized, field_name) is None)
                         )
-                    if date_recovered or (confidence >= 0.85 and confidence >= line.confidence + 0.08):
+                    if date_recovered or (id(line) not in invalid_dates
+                                          and confidence >= 0.85 and confidence >= line.confidence + 0.08):
                         line.text = retries[0].text
                         line.confidence = confidence
                         line.recognition_note = (
@@ -693,6 +761,86 @@ class OCRService:
                         )
                 # Calendar syntax alone cannot justify selecting a different year.
                 # Agreement between retries remains uncertain, not independent proof.
+            # Tier 3: Tesseract OCR fallback when primary and recovery models remain uncertain or invalid
+            if tesseract and tesseract.is_available():
+                is_date = (
+                    id(line) in invalid_dates
+                    or _malformed_numeric_date(line.text)
+                    or _malformed_named_date(line.text)
+                    or (id(line) in date_fields)
+                )
+                is_mrz = id(line) in incomplete_mrz or "<" in line.text
+                needs_fallback = (
+                    id(line) in invalid_dates
+                    or _malformed_named_date(line.text)
+                    or line.confidence < 0.85
+                    or line.review_required
+                    or (is_mrz and len(line.text.replace(" ", "")) not in {30, 36, 44})
+                )
+                if needs_fallback:
+                    if is_date:
+                        tess_res = tesseract.recognize_date(crop, psm=7)
+                        if tess_res:
+                            t_text, t_conf = tess_res
+                            contexts = date_fields.get(id(line), set())
+                            field_name = next(iter(contexts), None)
+                            norm_tess, err_tess = normalize_date(t_text)
+                            date_valid = (
+                                err_tess is None
+                                and (field_name is None or date_context_warning(norm_tess, field_name) is None)
+                            )
+                            line.observations.append(
+                                OCRObservation(
+                                    text=t_text,
+                                    confidence=t_conf,
+                                    method="Tesseract fallback: date crop",
+                                )
+                            )
+                            # Overwrite only when primary/recovery failed date checks and Tesseract produced a verified date
+                            if (id(line) in invalid_dates or _malformed_named_date(line.text)) and date_valid and t_conf >= 0.65:
+                                line.text = t_text
+                                line.confidence = t_conf
+                                line.review_required = True
+                                line.recognition_note = (
+                                    "A valid calendar date was resolved by Tesseract backup engine after primary models failed format checks; original readings preserved in evidence."
+                                )
+                                invalid_dates.discard(id(line))
+                    elif is_mrz:
+                        tess_res = tesseract.recognize_mrz_line(crop, psm=7)
+                        if tess_res:
+                            t_text, t_conf = tess_res
+                            t_clean = t_text.replace(" ", "")
+                            if len(t_clean) in {30, 36, 44} or "<" in t_clean:
+                                line.observations.append(
+                                    OCRObservation(
+                                        text=t_clean,
+                                        confidence=t_conf,
+                                        method="Tesseract fallback: MRZ line crop",
+                                    )
+                                )
+                                if len(t_clean) in {30, 36, 44} and (len(line.text.replace(" ", "")) not in {30, 36, 44} or line.confidence < 0.75):
+                                    line.text = t_clean
+                                    line.confidence = t_conf
+                                    line.review_required = True
+                                    line.recognition_note = (
+                                        "MRZ line was completed by Tesseract backup engine; earlier readings preserved in evidence."
+                                    )
+                    else:
+                        tess_res = tesseract.recognize_line(crop, psm=7)
+                        if tess_res:
+                            t_text, t_conf = tess_res
+                            if t_text:
+                                line.observations.append(
+                                    OCRObservation(
+                                        text=t_text,
+                                        confidence=t_conf,
+                                        method="Tesseract fallback: line crop",
+                                    )
+                                )
+                                for prior_text in [line.text] + [r.text for r in retries]:
+                                    if prior_text.strip().upper() == t_text.strip().upper() and len(t_text.strip()) >= 3:
+                                        line.confidence = max(line.confidence, t_conf)
+                                        break
 
     def _recovery_reader(self, language: str, engine: Any, cancelled=None) -> Any:
         if not (self._fast_text and language == "latin" and "Rec" in self._medium_paths):
@@ -704,6 +852,32 @@ class OCRService:
             return _interruptible(self._get_engine(language, detailed=True), cancelled)(*args, **kwargs)
 
         return read
+
+    def read_plain(
+        self, image: np.ndarray, side: Side = "front", language: str = "latin",
+        cancelled: threading.Event | None = None,
+    ) -> list[OCRLine]:
+        """Detect and recognize without regional rereads, serialized with all other inference."""
+        with self._lock:
+            engine = _interruptible(self._get_engine(language), cancelled)
+            return self._read(engine, image, side, refine_regions=False)
+
+    def recognize_crop(
+        self, crop: np.ndarray, language: str = "latin",
+        cancelled: threading.Event | None = None,
+    ) -> tuple[str, float] | None:
+        """Recognize one already-located text line, without detection."""
+        if crop is None or crop.size == 0 or min(crop.shape[:2]) < 4:
+            return None
+        with self._lock:
+            engine = self._recovery_reader(
+                language, _interruptible(self._get_engine(language), cancelled), cancelled)
+            output = engine(crop, use_det=False, use_cls=False, use_rec=True)
+        texts, scores = getattr(output, "txts", None), getattr(output, "scores", None)
+        if texts is None or scores is None or len(texts) != 1 or len(scores) != 1:
+            return None
+        text, score = str(texts[0]).strip(), float(scores[0])
+        return (text, max(0.0, min(1.0, score))) if text and math.isfinite(score) else None
 
     def read(
         self, image: np.ndarray, side: Side = "front", language: str = "latin"
@@ -772,16 +946,34 @@ class OCRService:
                 # Choose orientation before spending regional recovery on a
                 # page that may be discarded. Reuse the selected full OCR read.
                 lines = self._read(engine, image, side, refine_regions=False)
-                # Only weak reads pay for the other three orientations. Each
-                # candidate's boxes stay in that rotated image's coordinates.
-                if auto_rotate and (
-                    (len(lines) < 6 and not _clear_labeled_reading(lines))
-                    or sum(row.confidence for row in lines) / max(1, len(lines)) < 0.7
-                ):
-                    def score(rows):
-                        return sum(row.confidence * min(len(row.text), 44) for row in rows
-                                   if row.confidence >= 0.65)
-                    best_angle, best_score = 0, score(lines)
+                mrz, _ = detect_mrz(lines)
+                has_good_reading = _clear_labeled_reading(lines) or mrz.checksum_valid is True
+                avg_confidence = (sum(row.confidence for row in lines) / max(1, len(lines))) if lines else 0.0
+
+                # Fast orientation detection via the lightweight direction classifier first
+                rotation = self._orientation(engine, image, lines) if auto_rotate else 0
+                if rotation:
+                    # Measured: lines read on a rotated page are unreliable (one
+                    # sideways direction and upside-down both misread), so the
+                    # upright page is always read again.
+                    image = rotate_image(image, rotation)
+                    lines = self._read(engine, image, side, refine_regions=False)
+                elif auto_rotate and not has_good_reading and (len(lines) < 2 or avg_confidence < 0.65):
+                    def score(rows, shape):
+                        horizontal = [r for r in rows
+                                      if bounds(r)[2] - bounds(r)[0] > bounds(r)[3] - bounds(r)[1]]
+                        # A passport MRZ belongs below the biodata. Its text
+                        # alone cannot distinguish upright from upside-down.
+                        bottom_mrz = sum(
+                            1 for r in horizontal
+                            if len(r.text.replace(" ", "")) >= 25 and "<<" in r.text
+                            and (bounds(r)[1] + bounds(r)[3]) / 2 > shape[0] * 0.55
+                        )
+                        label_count = len({match_label(r.text).field_name for r in rows if match_label(r.text)})
+                        base = sum(row.confidence * min(len(row.text), 44) for row in horizontal if row.confidence >= 0.65)
+                        return bottom_mrz, base + label_count * 50
+
+                    best_angle, best_score = 0, score(lines, image.shape)
                     best_lines = lines
                     best_image = image
                     for angle in (90, 180, 270):
@@ -789,29 +981,24 @@ class OCRService:
                             trial = rotate_image(image, angle)
                             rows = normalize_output(engine(trial, use_det=True, use_cls=True,
                                                            use_rec=True, text_score=0.35), side)
-                            trial_score = score(rows)
-                            if trial_score > best_score * 1.15:
+                            trial_score = score(rows, trial.shape)
+                            if trial_score > best_score:
                                 best_angle, best_score = angle, trial_score
                                 best_lines = rows
                                 best_image = trial
                         except Exception:
                             continue
-                    if best_angle:
-                        corrected = best_image
-                        # The winning orientation already has a full OCR read.
-                        # Reuse it, then apply the usual caption/date recovery.
-                        lines = self._read(engine, corrected, side, initial_lines=best_lines, recovery_engine=recovery)
-                        return corrected, lines, best_angle
-                rotation = self._orientation(engine, image, lines) if auto_rotate else 0
-                if rotation:
-                    height, width = image.shape[:2]
-                    image = rotate_image(image, rotation)
-                    lines = _rotate_lines(lines, width, height, rotation)
+                    image = best_image
+                    lines = best_lines
+                    rotation = best_angle
                 self._recover_small_captions(engine, image, lines, side)
                 lines = _reading_order(lines)
                 measure_appearance(image, lines)
-                self._retry_uncertain_regions(recovery, image, lines)
-                self._retry_mrz_names(recovery, image, lines)
+                self._retry_uncertain_regions(
+                    recovery, image, lines,
+                    tesseract=self._tesseract,
+                )
+                self._retry_mrz_names(recovery, image, lines, tesseract=self._tesseract)
                 return image, lines, rotation
             except Exception as exc:
                 raise OCRUnavailableError("Text recognition failed. Try a clearer image.") from exc

@@ -33,7 +33,7 @@ def test_clear_printed_names_are_cross_checked_without_replacing_ocr(names, agre
         assert field.value == expected
         assert field.value_kind == "printed"
         assert field.source == "visual"
-        assert field.status == "detected"
+        assert field.status == ("conflicting" if agreement is False else "detected")
         assert field.validation["source_agreement"] is agreement
         assert {e.source for e in field.evidence} == {"visual", "mrz"}
     assert result["checks"]["mrz_matches_printed"] is agreement
@@ -46,13 +46,13 @@ def test_clear_printed_names_are_cross_checked_without_replacing_ocr(names, agre
     ("Date of birth: 12 AUG 1988", "date_of_birth", "1988-08-12"),
     ("Sex: M", "sex", "M"),
 ])
-def test_other_clear_printed_fields_also_ignore_mrz_disagreement(caption, key, expected):
+def test_other_clear_printed_fields_keep_print_and_flag_mrz_disagreement(caption, key, expected):
     result = output([row(caption), *mrz()])
     field = result["fields"][key]
     assert field.value == expected
     assert field.value_kind == "printed"
     assert field.source == "visual"
-    assert field.status != "conflicting"
+    assert field.status == "conflicting"
     assert isinstance(field.validation.get("source_agreement"), bool)
 
 
@@ -116,7 +116,7 @@ def test_genuine_c_letters_initials_and_multiple_names_are_preserved(names, surn
 ])
 def test_translated_caption_is_never_the_name(caption, key, heading):
     field = output([row(caption)])["fields"][key]
-    assert field.value == caption.split(":")[-1].strip().upper()
+    assert field.value == caption.split(":")[-1].strip()
     assert field.display_label == heading
     assert field.evidence[0].associated_label == caption
 

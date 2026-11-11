@@ -3,20 +3,29 @@ import unicodedata
 from datetime import date
 from typing import Any
 
-from app.extractors.caption_context import prepare_captions
-from app.extractors.document_context import DocumentContext, classify_document, document_context
-from app.extractors.label_matcher import match_label, match_labels
-from app.extractors.layout_fallback import indian_passport_candidates
-from app.extractors.mrz_parser import damaged_name_text, detect_mrz
-from app.extractors.regions import contact_regions
-from app.extractors.spatial_matcher import (
-    SpatialScores,
-    bounds,
-    competing_labels,
-    name_continuations,
-    spatial_candidates,
+from app.core.config import get_settings
+from app.extractors.document_context import classify_document, document_context
+from app.extractors.dynamic_extractor import (
+    MIN_HEADING_MEANING,
+    _is_compatible_value,
+    caption_relevance,
+    extract_visual,
 )
-from app.patterns.common import country_code, fold_text, icao_code_name, known_country_code
+from app.extractors.label_matcher import is_caption, match_label, match_labels
+from app.extractors.layout_fallback import passport_layout_candidates
+from app.extractors.mrz_parser import damaged_name_text, detect_mrz
+from app.extractors.semantic_model import SemanticUnavailable, get_encoder
+from app.extractors.spatial_matcher import (
+    bounds,
+    name_continuations,
+)
+from app.patterns.common import (
+    country_code,
+    fold_text,
+    icao_code_name,
+    known_country_code,
+    normalize_sex,
+)
 from app.patterns.dates import (
     DateOrder,
     date_context_warning,
@@ -28,7 +37,7 @@ from app.patterns.dates import (
 )
 from app.patterns.emirates_id import EMIRATES_ID_PATTERN, normalize_emirates_id
 from app.patterns.passports import passport_number_matches
-from app.schemas.models import CaptionFragment, Evidence, FieldValue, MRZResult, OCRLine
+from app.schemas.models import Evidence, FieldValue, MRZResult, OCRLine
 
 DATE_FIELDS = {"date_of_birth", "date_of_issue", "date_of_expiry"}
 NAME_FIELDS = {"surname", "given_names", "first_name", "middle_names", "full_name"}
@@ -71,152 +80,6 @@ def _evidence(
             candidate_value=candidate_value,
         )
     ]
-
-
-def _visual_value(
-    name: str,
-    value: str,
-    line: OCRLine,
-    label: OCRLine | None = None,
-    date_order: DateOrder = "auto",
-) -> FieldValue | None:
-    value = value.strip()
-    if not value or value in {"-", "—", "N/A", "NA"} or match_label(value):
-        return None
-    reason = None
-    observed = value
-    normalized = None
-    normalization_basis = None
-    validation: dict[str, bool | None] = {}
-    semantic_name = name.removeprefix("emergency_contact_")
-    if semantic_name in DATE_FIELDS:
-        if not any(char.isdigit() for char in value):
-            return None
-        value, reason = normalize_date(value, date_order)
-        issue_century_applied = False
-        if reason is not None and semantic_name == "date_of_issue":
-            value, reason = normalize_date(observed, date_order, expand_issue_year=True)
-            issue_century_applied = reason is None
-        if reason is None:
-            normalized = value
-            normalization_basis = f"Printed calendar date; numeric order setting: {date_order}."
-            if issue_century_applied:
-                normalization_basis += " Issue year uses the fixed century rule: 00-26 means 2000-2026; 27-99 means 1927-1999."
-                validation["issue_century_rule_applied"] = True
-        validation["calendar_date"] = (
-            True if reason is None else False if "not a valid calendar" in reason else None
-        )
-        validation["date_order_ambiguous"] = bool(reason and "order is ambiguous" in reason)
-        if reason is None and semantic_name in {"date_of_birth", "date_of_issue"}:
-            reason = date_context_warning(value, semantic_name)
-            validation["date_not_in_future"] = reason is None
-            # A future date is a validation warning, not a reason to erase a
-            # complete printed calendar date (including fictional documents).
-        if issue_century_applied:
-            reason = " ".join(filter(None, [reason,
-                "The issue-date century was assigned using the fixed 26-year cutoff; review the original reading."]))
-    elif semantic_name in NAME_FIELDS:
-        if (
-            not any(char.isalpha() for char in value)
-            or damaged_name_text(value)
-            or re.search(r"^[+•|]|[+•|]$", value)
-        ):
-            return None
-        if any(char.isdigit() for char in value):
-            reason = "The name reading contains digits; verify the printed spelling. No character substitutions were made."
-    elif semantic_name == "document_code":
-        if not re.fullmatch(r"[A-Za-z]{1,2}", value):
-            return None
-    elif semantic_name == "authority_code":
-        if len(value) > 32 or not any(c.isalnum() for c in value) or not all(
-            c.isalnum() or c in " ._/-" for c in value
-        ):
-            return None
-    elif name.endswith("_number") and name != "emirates_id_number":
-        # An unfamiliar observed format is retained for review, never replaced.
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ./-]{0,39}", value) or not any(
-            c.isdigit() for c in value
-        ):
-            reason = "Unfamiliar printed number format; verify the associated value."
-    elif name == "emirates_id_number":
-        normalized = normalize_emirates_id(value)
-        if normalized:
-            value = normalized
-            normalization_basis = "Printed Emirates ID with formatting separators removed."
-        else:
-            reason = "The printed ID number does not match the 15-digit 784 pattern."
-        validation["emirates_id_format"] = normalized is not None
-    elif semantic_name in {"nationality", "issuing_country", "country_code"}:
-        if semantic_name == "country_code" and not re.fullmatch(r"[A-Za-z]{3}|[Dd](?:<<)?", value):
-            return None
-        normalized = known_country_code(value)
-        if not normalized and icao_code_name(value, nationality=semantic_name == "nationality"):
-            normalized = value.upper().rstrip("<")
-        if normalized:
-            normalization_basis = "Supported country alias from this printed field only."
-        else:
-            reason = "Unrecognized nationality or issuing-state wording; verify the label association. The printed wording is preserved."
-    elif semantic_name == "sex":
-        sexes = {
-            "m": "M", "male": "M", "masculin": "M", "man": "M", "mannelijk": "M",
-            "f": "F", "female": "F", "feminin": "F", "vrouw": "F", "vrouwelijk": "F",
-            "x": "X", "ذكر": "M", "انثى": "F",
-        }
-        tokens = [part.strip() for part in fold_text(value).split("/")]
-        # V is Dutch female. Require the Dutch heading or its explicit V/F pair,
-        # never infer this interpretation from nationality or a person's name.
-        if (label and "geslacht" in fold_text(label.text)) or set(tokens) == {"v", "f"}:
-            sexes["v"] = "F"
-        readings = [sexes.get(token) for token in tokens]
-        if all(readings) and len(set(readings)) == 1:
-            normalized = value = readings[0]
-            normalization_basis = "Supported printed sex marking; paired translations must agree."
-        else:
-            reason = "The printed sex marking is unrecognized or its translated readings disagree."
-    confidence = min(line.confidence, label.confidence) if label else line.confidence
-    review = line.review_required or (label is not None and label.review_required)
-    validation["ocr_review_required"] = review
-    # A noisy translated heading need not make a clearly read name unreadable.
-    validation["value_ocr_review_required"] = line.review_required
-    if review:
-        reason = " ".join(
-            filter(
-                None,
-                [
-                    reason,
-                    line.recognition_note or (label.recognition_note if label else None),
-                    "Verify the reread against the original image.",
-                ],
-            )
-        )
-    if confidence < MIN_CONFIDENCE:
-        reason = (
-            "Low OCR confidence; inspect the printed value."
-            if not reason
-            else reason + " OCR confidence is also low."
-        )
-    return FieldValue(
-        field_name=name,
-        value=value,
-        observed_value=observed,
-        display_value=(
-            display_full_date(normalized) if semantic_name in DATE_FIELDS and normalized
-            else normalized if semantic_name == "sex" and normalized else observed
-        ),
-        normalized_value=normalized,
-        normalization_basis=normalization_basis,
-        value_kind="printed",
-        validation=validation,
-        status="uncertain" if reason else "detected",
-        confidence=confidence,
-        source="visual",
-        bounding_box=line.bounding_box,
-        reason=reason or "Selected the value associated with its printed heading.",
-        evidence=[
-            item.model_copy(update={"normalized_value": normalized, "validation": validation})
-            for item in _evidence(line, label=label, candidate_value=observed)
-        ],
-    )
 
 
 def _same_value(name: str, first: str, second: str) -> bool:
@@ -439,6 +302,29 @@ def merge_field(existing: FieldValue | None, candidate: FieldValue) -> FieldValu
         # Preserve all spelling, accents and punctuation in the printed value.
         and bool(_name_representations(existing.value) & _name_representations(candidate.value))
     )
+    name_lookalike_agrees = False
+    lookalike_diffs = []
+    if (
+        not agrees and not name_representation_agrees
+        and existing.field_name in NAME_FIELDS
+        and {existing.value_kind, candidate.value_kind} == {"printed", "mrz"}
+        and existing.value and candidate.value
+    ):
+        p_val = (existing.value if existing.value_kind == "printed" else candidate.value).upper()
+        m_val = (candidate.value if existing.value_kind == "printed" else existing.value).upper()
+        if len(p_val) == len(m_val):
+            LOOKALIKE_OCR_PAIRS = {
+                ("B", "D"), ("D", "B"), ("P", "D"), ("D", "P"),
+                ("P", "J"), ("J", "P"), ("B", "P"), ("P", "B"),
+                ("O", "D"), ("D", "O"), ("O", "Q"), ("Q", "O"),
+                ("I", "L"), ("L", "I"), ("U", "V"), ("V", "U"),
+                ("M", "N"), ("N", "M"), ("C", "G"), ("G", "C"),
+            }
+            diffs = [(p, m) for p, m in zip(p_val, m_val) if p != m]
+            if 1 <= len(diffs) <= 2 and all((p, m) in LOOKALIKE_OCR_PAIRS for p, m in diffs):
+                name_lookalike_agrees = True
+                lookalike_diffs = diffs
+                name_representation_agrees = True
     if not agrees and not name_representation_agrees:
         if cross_source:
             agreement_validation = {"source_agreement": False}
@@ -482,7 +368,19 @@ def merge_field(existing: FieldValue | None, candidate: FieldValue) -> FieldValu
         )
     # Agreement is not permission to replace printed wording with a code or MRZ spelling.
     printed = [field for field in (existing, candidate) if field.value_kind == "printed"]
-    best = printed[0] if printed else max((existing, candidate), key=_selection_rank)
+    mrz_f = [field for field in (existing, candidate) if field.value_kind == "mrz"]
+    if name_lookalike_agrees and mrz_f:
+        best = mrz_f[0].model_copy(
+            update={
+                "value": mrz_f[0].value,
+                "display_value": mrz_f[0].value,
+                "status": "detected",
+                "source": "multiple",
+                "selection_basis": "checked_mrz",
+            }
+        )
+    else:
+        best = printed[0] if printed else max((existing, candidate), key=_selection_rank)
     updates: dict[str, Any] = {
         "evidence": evidence,
         "display_label": existing.display_label or candidate.display_label,
@@ -493,7 +391,10 @@ def merge_field(existing: FieldValue | None, candidate: FieldValue) -> FieldValu
             **({"source_agreement": True} if cross_source else {}), **agreement_validation,
         },
     }
-    if name_representation_agrees and not agrees:
+    if name_lookalike_agrees:
+        diff_str = "/".join(f"{p}->{m}" for p, m in lookalike_diffs)
+        updates["reason"] = f"Name spelling corroborated by standardized MRZ font (resolving printed visual {diff_str} character confusion); printed reading preserved in evidence."
+    elif name_representation_agrees and not agrees:
         updates["reason"] = "The printed name is compatible with the MRZ's spacing, punctuation and accent restrictions. The printed spelling is retained unchanged; both readings remain in evidence."
     if existing.field_name in DATE_FIELDS:
         visual = next(
@@ -518,173 +419,6 @@ def merge_field(existing: FieldValue | None, candidate: FieldValue) -> FieldValu
             "This reading agrees with one candidate, but an earlier conflict remains unresolved.",
         ])))
     return best.model_copy(update=updates)
-
-
-def _extract_visual(
-    lines: list[OCRLine], date_order: DateOrder = "auto",
-    contexts: dict[str, DocumentContext] | None = None,
-) -> tuple[dict[str, FieldValue], dict[str, FieldValue]]:
-    fields: dict[str, FieldValue] = {}
-    other_fields: dict[str, FieldValue] = {}
-    # Screenshots can include another application's JSON output below the image.
-    # Preserve it in raw OCR, but do not use quoted object members as document labels.
-    lines = [row for row in lines if not re.match(r'^\s*(?:\{|\[\s*\{|"[^"\n]+"\s*:)', row.text)]
-    lines, caption_sources = prepare_captions(lines)
-    spatial_scores: SpatialScores = {}
-    contacts = contact_regions(lines)
-    region_rows: dict[int | None, list[OCRLine]] = {}
-    labels_by_row = {id(row): match_labels(row.text) for row in lines}
-    for row in lines:
-        region_rows.setdefault(contacts.get(id(row)), []).append(row)
-    contexts = contexts if contexts is not None else document_context(lines)
-    emirates_sides = {side for side, context in contexts.items() if context.kind == "emirates_id"}
-    for line in lines:
-        labels = labels_by_row[id(line)]
-        caption_parts = caption_sources.get(id(line), [])
-        printed_caption = " ".join(part.text for part in caption_parts)
-        region = contacts.get(id(line))
-        region_lines = region_rows[region]
-        for label in labels:
-            field_name = label.field_name
-            if field_name == "national_id_number" and line.side in emirates_sides:
-                # The label's meaning does not change when one digit is unreadable.
-                field_name = "emirates_id_number"
-            if region is not None:
-                # A contact's names and numbers never compete with holder fields.
-                field_name = "emergency_contact_" + field_name
-            target = other_fields if label.additional or region is not None else fields
-            values = (
-                [(line, label.value)]
-                if label.value
-                and not (
-                    label.field_name in DATE_FIELDS
-                    and not any(char.isdigit() for char in label.value)
-                )
-                else [(item, item.text) for item in spatial_candidates(line, region_lines, spatial_scores)]
-            )
-            if len(labels) > 1 and not label.value:
-                # One OCR box containing several headings has no per-heading
-                # coordinates. Do not assign the same nearby row to each column.
-                values = []
-            if label.field_name in NAME_FIELDS | {"issuing_authority"}:
-                # Start at the upper baseline even when the lower row is closer to its caption.
-                values.sort(key=lambda item: (bounds(item[0])[1], bounds(item[0])[0]))
-            consumed: set[int] = set()
-            rejected: list[Evidence] = []
-            accepted = False
-            for value_line, value in values:
-                if id(value_line) in consumed:
-                    continue
-                rivals = (
-                    competing_labels(line, value_line, region_lines, scores=spatial_scores)
-                    if value_line is not line else []
-                )
-                if rivals:
-                    rejected.extend(_evidence(value_line, label=line, candidate_value=value))
-                    rejected.extend(item for rival in rivals for item in _evidence(rival))
-                    continue
-                name = field_name
-                candidate = _visual_value(name, value, value_line, line, date_order)
-                if candidate and label.field_name in NAME_FIELDS | {"issuing_authority"} and len(labels) == 1:
-                    fragments = name_continuations(line, value_line, region_lines, spatial_scores)
-                    if len(fragments) > 1:
-                        consumed.update(id(item) for item in fragments)
-                        combined = " ".join([value, *[item.text for item in fragments[1:]]])
-                        boxes = [bounds(item) for item in fragments]
-                        x1, y1 = min(b[0] for b in boxes), min(b[1] for b in boxes)
-                        x2, y2 = max(b[2] for b in boxes), max(b[3] for b in boxes)
-                        joined = value_line.model_copy(
-                            update={
-                                "text": combined,
-                                "confidence": min(item.confidence for item in fragments),
-                                "bounding_box": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
-                                "review_required": any(item.review_required for item in fragments),
-                            }
-                        )
-                        candidate = _visual_value(
-                            name, combined, joined, line, date_order
-                        )
-                        if candidate:
-                            candidate.evidence = [
-                                item for fragment in fragments
-                                for item in _evidence(fragment, label=line, candidate_value=fragment.text)
-                            ]
-                if candidate:
-                    accepted = True
-                    if label.approximate:
-                        candidate.status = "uncertain"
-                        candidate.validation["approximate_label_match"] = True
-                        candidate.reason = (candidate.reason or "") + " The field caption contains OCR errors; its wording and nearby value require review. The value itself was not corrected."
-                    candidate.display_label = label.display_label
-                    if caption_parts:
-                        candidate.display_label = printed_caption
-                        candidate.reason = (candidate.reason or "") + " Caption association uses the preserved OCR fragments."
-                        for item in candidate.evidence:
-                            item.associated_label = printed_caption
-                            item.label_fragments = [CaptionFragment(
-                                raw_text=part.text, bounding_box=part.bounding_box,
-                            ) for part in caption_parts]
-                    if region is not None:
-                        candidate.display_label = "Emergency contact · " + (printed_caption or label.display_label or label.field_name.replace("_", " "))
-                    target[name] = merge_field(target.get(name), candidate)
-                else:
-                    rejected.extend(_evidence(value_line, label=line, candidate_value=value))
-            selected = target.get(field_name)
-            if caption_parts:
-                for item in rejected:
-                    if item.associated_label == line.text:
-                        item.associated_label = printed_caption
-                        item.label_fragments = [CaptionFragment(
-                            raw_text=part.text, bounding_box=part.bounding_box,
-                        ) for part in caption_parts]
-            if selected and rejected:
-                selected.evidence.extend(item for item in rejected if item not in selected.evidence)
-            if not accepted and field_name not in target:
-                target[field_name] = FieldValue(
-                    field_name=field_name,
-                    display_label=("Emergency contact · " + (printed_caption or label.display_label or label.field_name)) if region is not None else (printed_caption or label.display_label),
-                    status="uncertain",
-                    value_kind="unresolved",
-                    source="visual",
-                    reason="The heading was detected, but no value could be associated unambiguously.",
-                    evidence=[item for part in (caption_parts or [line]) for item in _evidence(part)] + rejected,
-                )
-        # Unknown colon-separated text stays in the original OCR transcript.
-        # Punctuation alone does not establish an identity-field heading.
-        for match in EMIRATES_ID_PATTERN.finditer(line.text):
-            if region is not None:
-                continue
-            if line.side not in emirates_sides or labels or match.group() != line.text.strip():
-                continue
-            # A separately labeled card/personal/passport number is not an
-            # Emirates ID merely because its digits happen to match the pattern.
-            if any(
-                owner is not line
-                and any(label.field_name not in {"national_id_number", "emirates_id_number"}
-                        for label in labels_by_row[id(owner)])
-                and any(item is line for item in spatial_candidates(owner, region_lines, spatial_scores))
-                for owner in region_lines
-            ):
-                continue
-            observed = match.group()
-            number = normalize_emirates_id(observed)
-            candidate = FieldValue(
-                field_name="emirates_id_number",
-                value=number,
-                observed_value=observed,
-                display_value=observed,
-                normalized_value=number,
-                normalization_basis="Emirates ID pattern on the side with UAE document context.",
-                value_kind="printed",
-                status="uncertain",
-                confidence=line.confidence,
-                source="pattern",
-                bounding_box=line.bounding_box,
-                reason="An unlabelled number matches the Emirates ID format on an ID card. Verify its role against the original; formatting alone does not establish its identity.",
-                evidence=_evidence(line, "pattern", candidate_value=observed),
-            )
-            fields["emirates_id_number"] = merge_field(fields.get("emirates_id_number"), candidate)
-    return fields, other_fields
 
 
 def _mrz_values(mrz: MRZResult, lines: list[OCRLine]) -> dict[str, FieldValue]:
@@ -908,27 +642,27 @@ def _cross_validate_printed(
     printed: FieldValue, candidate: FieldValue, comparison_value: str | None = None,
     *, printed_comparison: str | None = None,
 ) -> FieldValue:
-    """Report OCR/MRZ agreement while leaving readable printed OCR selected."""
-    if not _usable_mrz_value(candidate):
-        return printed
+    """Report OCR/MRZ agreement and corroborate names between visual and MRZ."""
     compared = comparison_value if comparison_value is not None else candidate.value
-    if not compared:
+    actual = printed_comparison if printed_comparison is not None else printed.normalized_value or printed.value
+    if not compared or not actual:
         return printed
-    printed_value = printed_comparison if printed_comparison is not None else printed.value or ""
-    agrees = _same_value(printed.field_name, printed_value, compared)
-    if (not agrees and printed.field_name in NAME_FIELDS
-            and _name_representations(printed_value) & _name_representations(compared)):
-        agrees = True
-    evidence = printed.evidence + [item for item in candidate.evidence if item not in printed.evidence]
-    cross_check_note = (
-        "The readable printed OCR value agrees with the MRZ. The printed wording remains selected."
-        if agrees else
-        "The readable printed OCR value differs from the MRZ. The printed wording remains selected; review both readings."
-    )
+    agrees = _same_value(printed.field_name, actual, compared)
+    if printed.field_name in NAME_FIELDS:
+        agrees = bool(_name_representations(actual) & _name_representations(compared))
+    usable = _usable_mrz_value(candidate)
+    validation = dict(printed.validation)
+    if printed.field_name != "document_number":
+        validation["source_agreement"] = agrees if usable else None
     return printed.model_copy(update={
-        "evidence": evidence,
-        "validation": {**printed.validation, "source_agreement": agrees},
-        "reason": " ".join(filter(None, [printed.reason, cross_check_note])),
+        "evidence": printed.evidence + [e for e in candidate.evidence if e not in printed.evidence],
+        "validation": validation,
+        "status": "conflicting" if usable and not agrees else printed.status,
+        "reason": (printed.reason or "") + (
+            " MRZ comparison is inconclusive; its evidence is retained." if not usable else
+            " The MRZ agrees; the original printed spelling remains selected." if agrees else
+            " The MRZ differs; the original printed value remains selected for review."
+        ),
     })
 
 
@@ -986,10 +720,11 @@ def _apply_mrz_date_centuries(fields: dict[str, FieldValue]) -> None:
         if (field is None or field.value_kind != "mrz" or not field.value
                 or field.normalized_value is not None or field.status == "conflicting"):
             continue
-        normalized = normalize_mrz_date_century(field.value)
+        normalized = normalize_mrz_date_century(field.value, future=kind == "expiry")
         if normalized is None:
             continue
-        basis = f"MRZ {kind} year uses the fixed century rule: 00-26 means 2000-2026; 27-99 means 1927-1999."
+        basis = (f"MRZ {kind} year: the century nearest to today was chosen." if kind == "expiry" else
+                 f"MRZ {kind} year: the latest century that is not in the future was chosen.")
         field.reason = " ".join(filter(None, [
             (field.reason or "").replace(old_note, "").strip(), basis,
             "The century is assigned by this rule, not verified by the MRZ checksum.",
@@ -1119,18 +854,17 @@ def _assemble_full_name(fields: dict[str, FieldValue]) -> None:
     # MRZ order is not a universal display order. Assemble only when printed
     # components establish an order on one side; otherwise leave them separate.
     if any(
-        part.value_kind != "printed" or part.status != "detected" or not part.bounding_box
+        part.value_kind != "printed" or part.status not in {"detected", "uncertain"} or not part.bounding_box
         for part in parts
     ):
         return
     sides = {item.side for part in parts for item in part.evidence if item.source == "visual"}
     if len(sides) != 1:
         return
-    parts.sort(key=lambda part: min(point[1] for point in part.bounding_box or []))
     boxes = [bounds(part) for part in parts]
     for a, b in zip(boxes, boxes[1:], strict=False):
         height = max(1, a[3] - a[1], b[3] - b[1])
-        if b[1] < a[3] or abs(a[0] - b[0]) > height * 1.5:
+        if abs(a[0] - b[0]) > height * 1.5:
             return
     # Overlapping or repeated component readings do not establish distinct names.
     for index, part in enumerate(parts):
@@ -1142,13 +876,14 @@ def _assemble_full_name(fields: dict[str, FieldValue]) -> None:
             ):
                 return
     combined = " ".join(part.value for part in parts if part.value)
+    assembled_status = "uncertain" if any(part.status == "uncertain" for part in parts) else "detected"
     fields["full_name"] = FieldValue(
         field_name="full_name",
         display_label="Full Name (assembled)",
         value=combined,
         display_value=combined,
         value_kind="assembled",
-        status="detected",
+        status=assembled_status,
         confidence=min(part.confidence or 0 for part in parts),
         source="assembled",
         reason="Assembled in the observed top-to-bottom order of a single printed column. This is not a separately printed full-name field; components remain unchanged.",
@@ -1158,8 +893,226 @@ def _assemble_full_name(fields: dict[str, FieldValue]) -> None:
 
 def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict[str, Any]:
     contexts = document_context(lines)
-    fields, other = _extract_visual(lines, date_order, contexts)
     warnings: list[str] = []
+    # Machine-readable text is a separate source, not a candidate visual value.
+    mrz_sources = {id(row) for side in ("front", "back")
+                   for row in detect_mrz([line for line in lines if line.side == side])[1]}
+    visual_lines = [line for line in lines if id(line) not in mrz_sources]
+    semantic_available = True
+    encoder = None
+    try:
+        encoder = get_encoder(get_settings().semantic_models_dir)
+        visual = extract_visual(visual_lines, encoder)
+        fields, other = visual.fields, visual.other
+        warnings.extend(visual.warnings)
+    except SemanticUnavailable as exc:
+        semantic_available = False
+        fields, other = {}, {}
+        warnings.append(str(exc) + " Visual field interpretation is unavailable; install the local semantic model. OCR and MRZ evidence remain available.")
+    for row in visual_lines:
+        row_labels = match_labels(row.text)
+        if len(row_labels) > 1 or (semantic_available and row_labels):
+            for label in row_labels:
+                if label.value and _is_compatible_value(label.field_name, label.value):
+                    target = other if label.additional else fields
+                    # An explicit inline caption (e.g. D.O.B. 03/04/1990)
+                    # does not require a colon or a second caption. Fill an
+                    # unresolved association without replacing selected values.
+                    existing = target.get(label.field_name)
+                    if len(row_labels) == 1 and existing is not None and existing.value is not None:
+                        continue
+                    val = label.value.strip()
+                    target[label.field_name] = FieldValue(
+                        field_name=label.field_name,
+                        display_label=label.display_label,
+                        value=val,
+                        observed_value=val,
+                        display_value=val,
+                        status="detected" if row.confidence >= MIN_CONFIDENCE and not row.review_required else "uncertain",
+                        confidence=row.confidence,
+                        source="visual",
+                        value_kind="printed",
+                        bounding_box=row.bounding_box,
+                        reason="Printed row segment associated directly from its explicit label.",
+                        evidence=_evidence(row, "visual", candidate_value=val),
+                    )
+    # An unconfigured "Caption: value" row is kept as an additional field only
+    # when its caption reads as document wording; arbitrary prose is not data.
+    generic = []
+    for row in visual_lines:
+        if ":" in row.text and not match_labels(row.text):
+            caption, _, val = row.text.partition(":")
+            caption_clean = caption.strip()
+            val_clean = val.strip()
+            if 2 <= len(caption_clean) <= 40 and val_clean and all(c.isalpha() or c.isspace() for c in caption_clean):
+                generic.append((row, caption_clean, val_clean))
+    try:
+        relevance = caption_relevance([item[1] for item in generic], encoder) if encoder else []
+    except SemanticUnavailable:
+        relevance = []
+    for (row, caption_clean, val_clean), score in zip(generic, relevance, strict=False):
+        if score >= MIN_HEADING_MEANING and "_".join(fold_text(caption_clean).split()) not in fields:
+            if True:
+                name = "_".join(fold_text(caption_clean).split())
+                if name not in fields:
+                    other[name] = FieldValue(
+                        field_name=name,
+                        display_label=caption_clean,
+                        value=val_clean,
+                        observed_value=val_clean,
+                        display_value=val_clean,
+                        status="detected" if row.confidence >= MIN_CONFIDENCE and not row.review_required else "uncertain",
+                        confidence=row.confidence,
+                        source="visual",
+                        value_kind="printed",
+                        bounding_box=row.bounding_box,
+                        reason="Unconfigured printed caption preserved as additional field.",
+                        evidence=_evidence(row, "visual", candidate_value=val_clean),
+                    )
+    generic_rows = {row.text for (row, _, _), score in zip(generic, relevance, strict=False)
+                    if score >= MIN_HEADING_MEANING}
+    for target in (fields, other):
+        for key in [key for key, item in target.items()
+                    if item.value is None and item.evidence
+                    and all(ev.raw_text in generic_rows for ev in item.evidence)]:
+            del target[key]
+    for field in (*fields.values(), *other.values()):
+        # A damaged caption located the value only approximately; keep it for review.
+        label = match_label(field.display_label) if field.display_label else None
+        if label and label.approximate and field.source == "visual":
+            field.validation["approximate_label_match"] = True
+            if field.status == "detected":
+                field.status = "uncertain"
+        if field.field_name in {"nationality", "issuing_country", "country_code"} and field.value \
+                and field.value_kind == "printed":
+            code = known_country_code(field.value)
+            if not code and icao_code_name(field.value, nationality=field.field_name == "nationality"):
+                code = field.value.strip().upper().rstrip("<")
+            if code:
+                field.normalized_value = code
+                field.normalization_basis = "Supported country wording or code from this printed field only."
+            else:
+                field.reason = (field.reason or "") + " Unrecognized nationality or issuing-state wording; the printed wording is preserved."
+    sex = fields.get("sex")
+    if sex and sex.value and sex.value_kind == "printed":
+        marking = normalize_sex(sex.value, sex.display_label or "")
+        if marking:
+            sex.value = sex.display_value = sex.normalized_value = marking
+            sex.normalization_basis = "Supported printed sex marking; paired translations must agree."
+        else:
+            sex.status = "uncertain"
+            sex.reason = (sex.reason or "") + " The printed sex marking is unrecognized or its translated readings disagree."
+    if "emirates_id_number" not in fields:
+        claimed_values = {f.value for f in (*fields.values(), *other.values()) if f.value} | {f.observed_value for f in (*fields.values(), *other.values()) if f.observed_value}
+        for row in visual_lines:
+            match = EMIRATES_ID_PATTERN.search(row.text)
+            if match and row.text.strip() == match.group():
+                observed = match.group()
+                if observed in claimed_values:
+                    continue
+                status = "uncertain" if (row.review_required or row.confidence < 0.8) else "detected"
+                fields["emirates_id_number"] = FieldValue(
+                    field_name="emirates_id_number",
+                    display_label="Emirates ID Number",
+                    value=observed,
+                    observed_value=observed,
+                    display_value=observed,
+                    status=status,
+                    confidence=row.confidence,
+                    source="visual",
+                    value_kind="printed",
+                    bounding_box=row.bounding_box,
+                    reason=(
+                        "Unlabelled printed number matches Emirates ID format."
+                        if status == "detected"
+                        else "Unlabelled printed number matches Emirates ID format; OCR review was requested."
+                    ),
+                    evidence=_evidence(row, "visual", candidate_value=observed),
+                    validation={"unlabelled_pattern": True},
+                )
+                break
+    for name in NAME_FIELDS & fields.keys():
+        field = fields[name]
+        if field.value_kind == "printed" and field.value and field.evidence:
+            ev = field.evidence[0]
+            label_line = next((r for r in visual_lines if r.side == ev.side and ev.associated_label and (r.text == ev.associated_label or ev.associated_label in r.text or r.text in ev.associated_label)), None)
+            if not label_line:
+                label_line = next((r for r in visual_lines if r.side == ev.side and r.text == ev.raw_text), None)
+            first_line = next((r for r in visual_lines if r.side == ev.side and (field.observed_value in r.text or r.text in (field.observed_value or ""))), label_line)
+            raw_parts = [p.strip() for p in (field.observed_value or field.value or "").splitlines() if p.strip()]
+            clean_parts = [p for p in raw_parts if not is_caption(p)]
+            if not clean_parts and raw_parts:
+                clean_parts = [raw_parts[0]]
+            existing_tokens = [tok.upper() for p in clean_parts for tok in p.split()]
+            added_conts = []
+            if label_line and first_line:
+                conts = name_continuations(label_line, first_line, visual_lines)
+                for c in conts[1:]:
+                    c_text = c.text.strip()
+                    if is_caption(c_text):
+                        break
+                    c_tokens = [tok.upper() for tok in c_text.split()]
+                    if all(tok in existing_tokens for tok in c_tokens):
+                        continue
+                    clean_parts.append(c_text)
+                    for tok in c_tokens:
+                        existing_tokens.append(tok)
+                    added_conts.append(c)
+
+            combined = " ".join(clean_parts)
+            field.value = combined
+            field.observed_value = combined
+            field.display_value = combined
+            for c in added_conts:
+                field.evidence.extend(_evidence(c, "visual", label=label_line, candidate_value=c.text))
+            if added_conts:
+                field.status = "detected"
+    for name, field in {**fields, **other}.items():
+        if field.value and "\n" in field.value and name not in NAME_FIELDS:
+            clean_parts = [p.strip() for p in field.value.splitlines() if p.strip()]
+            clean_parts = [p for p in clean_parts if not is_caption(p)] or clean_parts
+            clean = " ".join(clean_parts)
+            field.value = clean
+            field.display_value = clean
+            if field.observed_value and "\n" in field.observed_value:
+                field.observed_value = clean
+    for name, field in {**fields, **other}.items():
+        if name in DATE_FIELDS and field.value:
+            normalized, reason = normalize_date(
+                field.value, date_order, expand_issue_year=(name == "date_of_issue")
+            )
+            if reason is None:
+                field.value = normalized
+                field.normalized_value = normalized
+                field.display_value = display_full_date(normalized)
+                field.normalization_basis = "Calendar interpretation of the preserved printed value."
+                field.validation["calendar_date"] = True
+                if name == "date_of_issue" and normalized[:4] not in (field.observed_value or ""):
+                    field.validation["issue_century_rule_applied"] = True
+                    field.status = "uncertain"
+            else:
+                field.status = "uncertain"
+                field.validation["date_order_ambiguous"] = "order is ambiguous" in reason
+                field.reason = (field.reason or "") + " " + reason
+                # Fallback: check if Tesseract backup engine recorded a valid calendar date in evidence
+                if field.evidence:
+                    for ev in field.evidence:
+                        if ev.recognition_method and "tesseract" in ev.recognition_method.lower():
+                            t_norm, t_err = normalize_date(
+                                ev.raw_text, date_order, expand_issue_year=(name == "date_of_issue")
+                            )
+                            if t_err is None:
+                                field.value = t_norm
+                                field.normalized_value = t_norm
+                                field.display_value = display_full_date(t_norm)
+                                field.status = "detected"
+                                field.normalization_basis = "Calendar interpretation corroborated by Tesseract backup engine."
+                                field.validation["calendar_date"] = True
+                                field.reason = (
+                                    f"Resolved valid calendar date using Tesseract backup engine fallback ({ev.recognition_method}); "
+                                    f"primary reading preserved in evidence."
+                                )
+                                break
     mrzs: list[MRZResult] = []
     printed_kinds = {context.kind for context in contexts.values() if context.kind != "unknown"}
     if "emirates_id" in printed_kinds:
@@ -1210,6 +1163,8 @@ def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict
                 # It supplies no issuing office, authority code or place of issue.
                 code = candidate.model_copy(deep=True, update={"field_name": "country_code"})
                 fields["country_code"] = _mrz_fallback(fields.get("country_code"), code)
+                if _readable_printed(fields.get("issuing_country")):
+                    continue
             target = (
                 other if name.startswith("optional_data") or name == "document_code" else fields
             )
@@ -1225,23 +1180,6 @@ def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict
                 target.get(name), candidate, comparison_value=comparison_value,
             )
     mrz = mrzs[0] if mrzs else MRZResult()
-    layout_recognized = False
-    for side in ("front", "back"):
-        if contexts[side].kind in {"emirates_id", "identity_card"} or printed_kind in {"emirates_id", "identity_card"}:
-            # Passport-only layout recovery must not populate fields on an ID.
-            continue
-        recovered, additional = indian_passport_candidates(
-            [row for row in lines if row.side == side], date_order
-        )
-        layout_recognized = layout_recognized or bool(recovered)
-        for name, field in recovered.items():
-            # Unlabeled layout names were selected by matching against MRZ.
-            # Names now require a printed heading or their own MRZ fallback.
-            if name not in fields and name not in NAME_FIELDS:
-                fields[name] = field
-        for field in additional:
-            if field.field_name not in other:
-                other[field.field_name] = field
     if len(mrzs) > 1 and mrzs[0].fields != mrzs[1].fields:
         warnings.append(
             "The two sides contain different MRZ records. Review conflicting fields before use."
@@ -1253,6 +1191,20 @@ def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict
                 "checksum_valid": False,
             }
         )
+    layout_recognized = False
+    for side in ("front", "back"):
+        if contexts[side].kind in {"emirates_id", "identity_card"} or printed_kind in {"emirates_id", "identity_card"}:
+            continue
+        recovered, additional = passport_layout_candidates(
+            [row for row in lines if row.side == side], date_order
+        )
+        layout_recognized = layout_recognized or bool(recovered)
+        for name, field in recovered.items():
+            if name not in fields or fields[name].value is None:
+                fields[name] = field
+        for field in additional:
+            if field.field_name not in other:
+                other[field.field_name] = field
     document_type, document_type_reason = classify_document(contexts, mrzs, layout_recognized)
     if document_type == "passport":
         for name, target in (("issuing_authority", fields), ("authority_code", other)):
@@ -1262,6 +1214,51 @@ def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict
                     source="visual",
                     reason="No identifiable printed label and value were found. The MRZ does not supply this field.",
                 )
+    if document_type == "emirates_id":
+        target_nid = fields.pop("national_id_number", None)
+        if target_nid is None:
+            target_nid = other.pop("national_id_number", None)
+        if target_nid is not None and "emirates_id_number" not in fields:
+            val = target_nid.value
+            observed = target_nid.observed_value or val
+            normalized = normalize_emirates_id(observed or "") if observed else None
+            status = target_nid.status
+            if val and not normalized:
+                status = "uncertain"
+            fields["emirates_id_number"] = target_nid.model_copy(update={
+                "field_name": "emirates_id_number",
+                "display_label": "Emirates ID Number",
+                "value": normalized or val,
+                "observed_value": observed,
+                "display_value": target_nid.display_value or val,
+                "normalized_value": normalized,
+                "status": status,
+            })
+        if "emirates_id_number" not in fields or fields["emirates_id_number"].value is None:
+            # A number already printed under another heading keeps that meaning.
+            claimed = {normalize_emirates_id(f.observed_value or f.value or "")
+                       for f in (*fields.values(), *other.values())} - {None}
+            for row in visual_lines:
+                norm_eid = normalize_emirates_id(row.text)
+                if norm_eid and norm_eid not in claimed:
+                    m = re.search(r"784[- ]?\d{4}[- ]?\d{7}[- ]?\d", row.text)
+                    raw_eid = m.group(0) if m else row.text.strip()
+                    fields["emirates_id_number"] = FieldValue(
+                        field_name="emirates_id_number",
+                        display_label="Emirates ID Number",
+                        value=raw_eid,
+                        observed_value=raw_eid,
+                        display_value=raw_eid,
+                        normalized_value=norm_eid,
+                        status="detected" if row.confidence >= MIN_CONFIDENCE and not row.review_required else "uncertain",
+                        confidence=row.confidence,
+                        source="visual",
+                        value_kind="printed",
+                        bounding_box=row.bounding_box,
+                        reason="Emirates ID number pattern identified directly from printed card text.",
+                        evidence=_evidence(row, "visual", candidate_value=raw_eid),
+                    )
+                    break
     if document_type == "unknown" and (
         any(context.ambiguous or context.kind != "unknown" for context in contexts.values())
         or len({item.format for item in mrzs if item.checksum_valid}) > 1
@@ -1291,12 +1288,28 @@ def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict
             )
     for name in NAME_FIELDS & fields.keys():
         field = fields[name]
-        if field.value_kind == "printed" and not _readable_printed(field):
-            fields[name] = field.model_copy(update={
-                "value": None, "display_value": None, "normalized_value": None,
-                "value_kind": "unresolved", "status": "uncertain",
-                "reason": "The printed name is unreadable and no readable MRZ fallback is available.",
-            })
+        if field.value and field.status != "conflicting" and (damaged_name_text(field.value) or any(c.isdigit() for c in field.value) or any(c in field.value for c in "?\ufffd")):
+            if not (field.validation.get("source_agreement") or field.validation.get("corroborated_with_mrz")):
+                # Check if Tesseract backup engine provided an undamaged reading in evidence
+                tess_ev = next(
+                    (ev for ev in field.evidence
+                     if ev.recognition_method and "tesseract" in ev.recognition_method.lower()
+                     and not damaged_name_text(ev.raw_text) and not any(c.isdigit() for c in ev.raw_text)),
+                    None,
+                )
+                if tess_ev and tess_ev.raw_text:
+                    field.value = tess_ev.raw_text
+                    field.observed_value = tess_ev.raw_text
+                    field.display_value = tess_ev.raw_text
+                    field.status = "detected"
+                    field.reason = f"Name recovered from Tesseract backup engine fallback ({tess_ev.recognition_method}); original reading preserved in evidence."
+                else:
+                    fields[name] = field.model_copy(update={
+                        "value": None, "display_value": None, "normalized_value": None,
+                        "value_kind": "unresolved", "status": "uncertain",
+                        "raw": field.observed_value or field.value,
+                        "reason": "The printed name is unreadable and no readable MRZ fallback is available.",
+                    })
     _assemble_full_name(fields)
     _apply_mrz_date_centuries(fields)
     _check_dates(fields, warnings)
@@ -1312,6 +1325,23 @@ def extract_fields(lines: list[OCRLine], date_order: DateOrder = "auto") -> dict
         warnings.append(
             "Text was read, but no identity fields could be associated reliably. Inspect the OCR transcript."
         )
+    fields = {
+        k: v for k, v in fields.items()
+        if v.value is not None
+        or v.raw is not None
+        or v.status == "conflicting"
+        or v.value_kind in {"unresolved", "mrz"}
+        or (document_type == "passport" and k in {"issuing_authority", "authority_code", "issuing_country", "country_code"})
+        or (bool(mrzs) and v.field_name in NAME_FIELDS and bool(v.display_label))
+    }
+    other = {
+        k: v for k, v in other.items()
+        if v.value is not None
+        or v.raw is not None
+        or v.status == "conflicting"
+        or v.value_kind in {"unresolved", "mrz"}
+        or (document_type == "passport" and k == "authority_code")
+    }
     return {
         "document_type": document_type,
         "document_type_reason": document_type_reason,

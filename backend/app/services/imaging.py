@@ -328,14 +328,101 @@ def assess_quality(image: np.ndarray) -> tuple[dict[str, float], list[str]]:
     return metrics, messages
 
 
+def apply_clahe(
+    image: np.ndarray, clip_limit: float = 2.5, tile_grid_size: tuple[int, int] = (8, 8)
+) -> np.ndarray:
+    """Normalize local contrast using CLAHE in LAB space for glare, low light, and patterned paper."""
+    if image.ndim == 2:
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+        return clahe.apply(image)
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+    return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+
+def estimate_skew_angle(
+    image: np.ndarray, max_angle: float = 20.0, step: float = 0.5
+) -> float:
+    """Estimate document tilt using horizontal projection profile variance.
+    
+    Horizontal text lines maximize projection variance because text rows create
+    sharp peaks and row spacings create valleys.
+    """
+    height, width = image.shape[:2]
+    target_dim = 600
+    scale = min(1.0, target_dim / max(height, width))
+    small = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA) if scale < 1.0 else image
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY) if small.ndim == 3 else small
+
+    grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    abs_grad = cv2.convertScaleAbs(grad_y)
+    _, binary = cv2.threshold(abs_grad, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    if cv2.countNonZero(binary) < 50:
+        return 0.0
+
+    h, w = binary.shape
+    center = (w / 2.0, h / 2.0)
+    margin_x = int(w * 0.1)
+    margin_y = int(h * 0.1)
+
+    def calc_score(angle_deg: float) -> float:
+        mat = cv2.getRotationMatrix2D(center, float(angle_deg), 1.0)
+        rotated = cv2.warpAffine(
+            binary, mat, (w, h), flags=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=0
+        )
+        sub = rotated[margin_y : h - margin_y, margin_x : w - margin_x]
+        proj = np.sum(sub, axis=1, dtype=np.float64)
+        return float(np.var(np.diff(proj)))
+
+    base_score = calc_score(0.0)
+
+    # Coarse search: step 2.0 degrees
+    coarse_angles = np.arange(-max_angle, max_angle + 2.0, 2.0)
+    best_coarse_score = base_score
+    best_coarse_angle = 0.0
+    for angle in coarse_angles:
+        score = calc_score(angle)
+        if score > best_coarse_score:
+            best_coarse_score = score
+            best_coarse_angle = float(angle)
+
+    # Fine search: step 0.5 around best_coarse_angle +/- 2.0 degrees
+    fine_min = max(-max_angle, best_coarse_angle - 2.0)
+    fine_max = min(max_angle, best_coarse_angle + 2.0)
+    fine_angles = np.arange(fine_min, fine_max + step, step)
+    best_score = best_coarse_score
+    best_angle = best_coarse_angle
+    for angle in fine_angles:
+        score = calc_score(angle)
+        if score > best_score:
+            best_score = score
+            best_angle = float(angle)
+
+    if base_score > 0 and (best_score / base_score) >= 1.25 and abs(best_angle) >= 1.0:
+        return best_angle
+    return 0.0
+
+
+def deskew_image(image: np.ndarray, angle: float) -> np.ndarray:
+    """Rotate image by angle degrees with border replication to preserve all content."""
+    if abs(angle) < 0.1:
+        return image
+    h, w = image.shape[:2]
+    center = (w / 2.0, h / 2.0)
+    mat = cv2.getRotationMatrix2D(center, angle, 1.0)
+    return cv2.warpAffine(
+        image, mat, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    )
+
+
 def enhance_for_ocr(image: np.ndarray) -> np.ndarray:
     """Apply contrast correction only when measured darkness or contrast warrants it."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     if gray.std() >= 32 and gray.mean() >= 70:
         return image
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-    lab[:, :, 0] = cv2.createCLAHE(clipLimit=1.7, tileGridSize=(8, 8)).apply(lab[:, :, 0])
-    return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+    return apply_clahe(image, clip_limit=1.7)
 
 
 def text_region_for_ocr(image: np.ndarray, box: list[list[float]]) -> np.ndarray | None:
@@ -384,6 +471,11 @@ def process_image(
     crop_applied = corners is not None
     corrected = _warp(image, corners) if corners is not None else image
     corrected = rotate_image(corrected, options.rotation)
+    if options.rotation == 0:
+        skew_angle = estimate_skew_angle(corrected)
+        if abs(skew_angle) >= 0.5:
+            corrected = deskew_image(corrected, skew_angle)
+            messages.append(f"Fine deskew of {skew_angle:.1f}° was applied to straighten text lines.")
     if corners is None:
         corners = np.array(
             [[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]], dtype=np.float32

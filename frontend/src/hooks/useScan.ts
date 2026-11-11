@@ -111,11 +111,6 @@ export function useScan() {
                 error: "Extracted results are available, but a document preview could not be loaded.",
               }));
             }
-            // Cleanup must not delay or discard completed extraction. Keep the
-            // ID on failure so reset/unmount can retry; server retention also applies.
-            void api.deleteScan(started.scan_id).then(() => {
-              if (currentId.current === started.scan_id) currentId.current = null;
-            }).catch(() => undefined);
             return;
           }
           setState((previous) => previous.stage === job.stage

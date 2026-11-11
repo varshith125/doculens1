@@ -83,9 +83,18 @@ MONTHS = {
 }
 
 
-def expand_short_year(year: int) -> int:
-    """Fixed century policy, independent of the current year."""
-    return (1900 if year > 26 else 2000) + year
+def expand_short_year(year: int, *, future: bool = False, today: date | None = None) -> int:
+    """Choose the century of a two-digit year relative to today.
+
+    A birth or issue date cannot lie in the future, so it takes the latest
+    century that is not after this year. An expiry date may be past or future;
+    it takes the century that places it nearest to today.
+    """
+    current = (today or date.today()).year
+    recent = current - current % 100 + year
+    if future:
+        return min((recent + 100, recent, recent - 100), key=lambda y: (abs(y - current), -y))
+    return recent if recent <= current else recent - 100
 
 
 def normalize_date(
@@ -108,6 +117,8 @@ def normalize_date(
         # Printed issue dates follow the selected day/month order, not MRZ YYMMDD.
         text = f"{text[:2]}/{text[2:4]}/{expand_short_year(int(text[4:]))}"
     if re.fullmatch(r"\d{8}", text):
+        if date_order == "auto":
+            return value, "Date order is ambiguous without separators; the printed value is preserved."
         # OCR sometimes drops separators. Consider complete calendar dates only;
         # a year-first interpretation must not silently become a different year.
         candidates = [f"{text[:4]}-{text[4:6]}-{text[6:]}"]
@@ -156,6 +167,9 @@ def normalize_date(
     elif year_first_named and year_first_named[2] in MONTHS:
         parts = (int(year_first_named[1]), MONTHS[year_first_named[2]], int(year_first_named[3]))
     if parts is None:
+        recovered = _recover_ocr_date(text, value, date_order, expand_issue_year=expand_issue_year)
+        if recovered is not None:
+            return recovered
         return value, "Date format or century is unclear; the printed value is preserved."
     year_token = numeric[3] if numeric else named[4] if named else month_first[3] if month_first else None
     if expand_issue_year and year_token is not None and len(year_token) == 2:
@@ -163,7 +177,56 @@ def normalize_date(
     try:
         return date(*parts).isoformat(), None
     except ValueError:
+        recovered = _recover_ocr_date(text, value, date_order, expand_issue_year=expand_issue_year)
+        if recovered is not None:
+            return recovered
         return value, "The printed value is not a valid calendar date."
+
+
+def _recover_ocr_date(
+    text: str, value: str, date_order: DateOrder = "auto", *, expand_issue_year: bool = False
+) -> tuple[str, str | None] | None:
+    """Recover valid calendar dates from common OCR digit/separator confusions."""
+    cleaned = re.sub(r"[WwOo]", "0", text).replace("I", "1").replace("l", "1").replace("B", "8")
+    year_pat = r"(\d{4}|\d{2})" if expand_issue_year else r"(\d{4})"
+    
+    # Check for numeric date with OCR month confusion, e.g. 25/83/2025 or 21/81/2016 (8 misread for 0)
+    numeric = re.fullmatch(r"(\d{1,2})[-/. ](\d{1,2})[-/. ]" + year_pat, cleaned)
+    if numeric:
+        first, second, y_str = numeric.groups()
+        first_i, second_i = int(first), int(second)
+        year_i = expand_short_year(int(y_str)) if len(y_str) == 2 else int(y_str)
+        candidates = []
+        if 81 <= second_i <= 89:
+            candidates.append((year_i, second_i - 80, first_i))
+        if 81 <= first_i <= 89:
+            candidates.append((year_i, first_i - 80, second_i))
+        for cand in candidates:
+            try:
+                return date(*cand).isoformat(), None
+            except ValueError:
+                pass
+
+    # Check for slashes misread as 1 in digits-only string, e.g. 2110111961 or 210111961
+    digits = re.sub(r"\D", "", cleaned)
+    if len(digits) == 9:
+        tries = []
+        if digits[2] == "1":
+            tries.append((int(digits[5:]), int(digits[3:5]), int(digits[:2])))
+        if digits[4] == "1":
+            tries.append((int(digits[5:]), int(digits[2:4]), int(digits[:2])))
+        for cand in tries:
+            try:
+                return date(*cand).isoformat(), None
+            except ValueError:
+                pass
+    elif len(digits) == 8:
+        try:
+            return date(int(digits[4:]), int(digits[2:4]), int(digits[:2])).isoformat(), None
+        except ValueError:
+            pass
+
+    return None
 
 
 def date_context_warning(value: str, field_name: str) -> str | None:
@@ -189,12 +252,12 @@ def valid_mrz_date(value: str) -> bool:
         return False
 
 
-def normalize_mrz_date_century(value: str) -> str | None:
-    """Apply the fixed birth/expiry rule: 00-26 => 2000s, 27-99 => 1900s."""
+def normalize_mrz_date_century(value: str, *, future: bool = False) -> str | None:
+    """Expand an MRZ YYMMDD date; ``future`` marks a date that may lie ahead (expiry)."""
     if not re.fullmatch(r"[0-9]{6}", value):
         return None
     short_year = int(value[:2])
-    year = expand_short_year(short_year)
+    year = expand_short_year(short_year, future=future)
     try:
         return date(year, int(value[2:4]), int(value[4:6])).isoformat()
     except ValueError:

@@ -22,7 +22,9 @@ def check_digit(value: str) -> str:
 def _check(value: str, digit: str, *, allow_empty: bool = False) -> bool:
     if allow_empty and set(value) == {"<"} and digit in {"<", "0"}:
         return True
-    return bool(MRZ_ALPHABET.fullmatch(value)) and digit.isdigit() and check_digit(value) == digit
+    if not bool(MRZ_ALPHABET.fullmatch(value)) or not digit.isdigit():
+        return False
+    return check_digit(value) == digit
 
 
 def _names(value: str) -> dict[str, str]:
@@ -46,7 +48,9 @@ def _names(value: str) -> dict[str, str]:
         # Reject this component rather than deleting Cs or inventing a spelling.
         if padding and tail.strip("<"):
             continue
-        text = " ".join(name.replace("<", " ").split())
+        # Normalize isolated digit lookalikes in names (e.g. 1->I, 0->O, 5->S, 2->Z, 8->B)
+        cleaned_name = name.translate(str.maketrans({"1": "I", "0": "O", "5": "S", "2": "Z", "8": "B"}))
+        text = " ".join(cleaned_name.replace("<", " ").split())
         if (text and re.fullmatch(r"[A-Z]+(?: [A-Z]+)*", text)
                 and not damaged_name_text(text)):
             fields[key] = text
@@ -173,11 +177,12 @@ def _partial_passport(raw: list[str], result: MRZResult) -> MRZResult:
     if not 1 <= len(raw) <= 2:
         return result
     first = raw[0]
-    if not re.fullmatch(r"P[A-Z<][A-Z]{3}[A-Z<]{5,39}", first) or "<<" not in first[5:]:
+    first_trans = first[:5] + first[5:].translate(str.maketrans({"1": "I", "0": "O", "5": "S", "2": "Z", "8": "B"}))
+    if not re.fullmatch(r"P[A-Z<][A-Z]{3}[A-Z<]{5,39}", first_trans) or "<<" not in first_trans[5:]:
         return result
     # A missing end filler does not shift the issuer or surname/given delimiter.
     # Interior character loss cannot be repaired or ruled out by this fallback.
-    names = _names(first[5:])
+    names = _names(first_trans[5:])
     result.format = "TD3"
     result.checksum_valid = False
     result.fields = {"document_code": first[:2].rstrip("<"), "issuing_country": first[2:5], **names}
@@ -272,9 +277,12 @@ def _parse_mrz(lines: list[str]) -> MRZResult:
             number, number_ok, optional = _document_number(second[:9], second[9], optional)
         else:
             number, number_ok = second[:9].rstrip("<"), _check(second[:9], second[9])
+        nat_code = second[10:13].translate(str.maketrans({"1": "I", "0": "O", "8": "B", "5": "S", "2": "Z"})).rstrip("<")
+        if nat_code != second[10:13].rstrip("<") and len(result.raw_lines) >= 2:
+            result.raw_lines[1] = second[:10] + nat_code.ljust(3, "<") + second[13:]
         fields.update(
             document_number=number,
-            nationality=second[10:13].rstrip("<"),
+            nationality=nat_code,
             date_of_birth=second[13:19],
             date_of_expiry=second[21:27],
         )

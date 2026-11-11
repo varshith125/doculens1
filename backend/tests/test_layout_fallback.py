@@ -36,9 +36,12 @@ def test_corroborated_layout_fields_are_named_but_remain_uncertain():
     assert fields["given_names"].value == "ALEX MORGAN"
     assert fields["surname"].value == "EXAMPLE"
     assert fields["full_name"].value == "ALEX MORGAN EXAMPLE"
-    assert fields["date_of_birth"].value == "1961-01-21"
-    assert fields["date_of_issue"].value == "2020-04-03"
-    assert fields["date_of_expiry"].value == "2030-04-03"
+    for key, candidate in (("date_of_birth", "1961-01-21"),
+                           ("date_of_issue", "2020-04-03"),
+                           ("date_of_expiry", "2030-04-03")):
+        assert fields[key].value is None
+        assert fields[key].validation["heading_unresolved"] is True
+        assert any(item.candidate_value == candidate for item in fields[key].evidence)
     assert all(field.status == "uncertain" for field in fields.values())
     assert "document_number" not in fields
     assert "nationality" not in fields  # Issuing state is not evidence of nationality.

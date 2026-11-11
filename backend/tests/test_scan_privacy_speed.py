@@ -91,8 +91,8 @@ def test_fast_first_pass_uses_recovery_model_only_for_uncertain_regions(monkeypa
                      bounding_box=[[0, 0], [50, 0], [50, 10], [0, 10]])] * 6
     seen = []
     monkeypatch.setattr(service, "_recover_small_captions", lambda e, *_: seen.append(("detect", e)))
-    monkeypatch.setattr(service, "_retry_uncertain_regions", lambda e, *_: seen.append(("retry", e)))
-    monkeypatch.setattr(service, "_retry_mrz_names", lambda e, *_: seen.append(("mrz", e)))
+    monkeypatch.setattr(service, "_retry_uncertain_regions", lambda e, *_, **kwargs: seen.append(("retry", e)))
+    monkeypatch.setattr(service, "_retry_mrz_names", lambda e, *_, **kwargs: seen.append(("mrz", e)))
     service._read(initial, np.full((100, 100, 3), 255, np.uint8), "front",
                   initial_lines=lines, recovery_engine=recovery)
     assert seen == [("detect", initial), ("retry", recovery), ("mrz", recovery)]
@@ -110,8 +110,8 @@ def test_short_clear_document_avoids_full_page_orientation_retries(monkeypatch):
     monkeypatch.setattr(service, "_get_engine", lambda _: engine)
     monkeypatch.setattr(service, "_orientation", lambda *_: 0)
     monkeypatch.setattr(service, "_recover_small_captions", lambda *_: None)
-    monkeypatch.setattr(service, "_retry_uncertain_regions", lambda *_: None)
-    monkeypatch.setattr(service, "_retry_mrz_names", lambda *_: None)
+    monkeypatch.setattr(service, "_retry_uncertain_regions", lambda *_, **kwargs: None)
+    monkeypatch.setattr(service, "_retry_mrz_names", lambda *_, **kwargs: None)
     _, lines, _ = service.read_oriented(np.full((100, 220, 3), 255, np.uint8))
     assert len(lines) == 2
     assert len(calls) == 1

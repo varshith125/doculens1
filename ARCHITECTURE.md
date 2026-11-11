@@ -83,7 +83,7 @@ The latest saved benchmark in this project was recorded on **26 October 2026**. 
 | OCR model startup check | 3.76 seconds | Time to load and check the models; Python import time was not included. |
 | Backend process memory | 165.84 MB | Resident-memory snapshot at the end of the benchmark, not the peak. |
 
-These figures describe that test image, computer, and software setup. A two-sided scan, larger or harder-to-read image, different OCR model, or slower computer can take longer. The 165.84 MB figure is for the backend process only; it does not include the browser, other computer processes, or peak temporary memory. The benchmark file is [`docs/benchmark.json`](docs/benchmark.json).
+These figures were measured with the small OCR models on a clean synthetic image and do not describe real photographs. The 11 November 2026 run over 16 real passport photos with the Medium models averaged 11.86 seconds per scan (6.59–21.96 s) at 64.86% normalized field accuracy; see [`docs/full-document-accuracy-2026-11-11.md`](docs/full-document-accuracy-2026-11-11.md). The figures in the table describe that test image, computer, and software setup. A two-sided scan, larger or harder-to-read image, different OCR model, or slower computer can take longer. The 165.84 MB figure is for the backend process only; it does not include the browser, other computer processes, or peak temporary memory. The benchmark file is [`docs/benchmark.json`](docs/benchmark.json).
 
 The default backend uses one scan worker, and OCR model calls are serialized. If several people submit scans at the same time, later scans can wait in the queue. Raising the worker count does not make the OCR model itself run multiple scans at once.
 
@@ -108,7 +108,7 @@ All routes are under `/api/v1`.
 
 | Route | Purpose |
 | --- | --- |
-| `GET /health` | Reports readiness, available OCR routes, and limits. |
+| `GET /health` | Reports readiness, available OCR languages, usable optional engines, and limits. |
 | `POST /session` | Creates or reuses a signed browser session. |
 | `POST /scans` | Uploads front/back files and starts a scan. |
 | `GET /scans/{id}` | Returns progress, result, or a safe error for that session's scan. |

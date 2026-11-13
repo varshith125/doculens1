@@ -1,0 +1,37 @@
+# DocuLens on a public server, with automatic HTTPS from Caddy.
+# Put your address in a .env file next to this one:   DOMAIN=yourname.duckdns.org
+# Start:  docker compose up -d        Stop:  docker compose down
+services:
+  doculens:
+    image: varshith6166/doculens:latest
+    environment:
+      DOCULENS_ALLOWED_HOSTS: '["${DOMAIN}","localhost","127.0.0.1"]'
+      DOCULENS_ALLOWED_ORIGINS: '["https://${DOMAIN}"]'
+      DOCULENS_COOKIE_SECURE: "true"
+      DOCULENS_RETENTION_SECONDS: "60"
+    expose:
+      - "8000"            # reachable only through Caddy, never directly
+    restart: unless-stopped
+    mem_limit: 8g
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  caddy:
+    image: caddy:2
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # HTTPS certificates, kept across restarts
+      - caddy_config:/config
+    depends_on:
+      - doculens
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

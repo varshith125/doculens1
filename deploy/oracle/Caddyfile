@@ -1,0 +1,9 @@
+# Caddy requests and renews a free HTTPS certificate for this address automatically.
+{$DOMAIN} {
+	encode gzip
+	# Uploads are up to 12 MB per side.
+	request_body {
+		max_size 30MB
+	}
+	reverse_proxy doculens:8000
+}

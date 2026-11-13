@@ -18,8 +18,8 @@ The browser sends the image and scan settings to the Python app. The app prepare
 6. **Read the text.** Local OCR models detect text lines, check orientation, and recognize characters. Each reading keeps its position and confidence. The app can reread a small number of uncertain regions; these rereads are not independent proof that a value is correct.
 7. **Match text to fields.** Extraction rules use nearby labels, page layout, document type, supported aliases, and MRZ structure to identify possible names, dates, numbers, and other values. MRZ checks can catch some reading mistakes, but do not verify authenticity.
 8. **Keep uncertainty visible.** The app retains the original OCR evidence and shows missing, uncertain, or conflicting readings as such. It does not fill in unreadable characters just to create a complete value.
-9. **Return the results.** The browser checks the scan status about every 250 milliseconds. When processing finishes, the backend returns the fields, warnings, timings, OCR evidence, and original/corrected previews.
-10. **Review and clean up.** The person checks the results against the document, then copies or exports them. The browser requests deletion when the scan is cleared or cancelled. As a fallback, completed scans expire from backend memory after the configured retention period.
+9. **Return the results.** The browser checks the scan status about every 250 milliseconds. When processing finishes, one final reply carries the fields, warnings, timings, OCR evidence and the corrected preview (plus the rendered page for a PDF). **The backend deletes the scan as soon as that reply is sent.**
+10. **Review.** The person checks the results against the document, then copies or exports them. A scan whose result is never collected (for example, the page was closed mid-scan) is deleted automatically after the retention period.
 
 The progress labels represent actual processing stages: `queued`, `detecting_document`, `correcting_alignment`, `reading_text`, `validating_fields`, and `preparing_results`. Cancellation discards obsolete results. A native OCR call already in progress cannot be forcibly stopped.
 
@@ -130,10 +130,11 @@ The default backend uses one scan worker, and OCR model calls are serialized. If
 | Active scans held by one backend process | 8 |
 | Scans held for one browser session | 1; a new scan clears that session's previous scan |
 | Encoded preview-image storage | 160 MB across active scans |
-| Completed scan retention | 60 seconds by default; configurable from 30 seconds to one hour |
-| Incomplete scan retention | Up to 5 minutes |
+| Delivered scan | Deleted immediately after its result is sent |
+| Undelivered completed scan | Deleted after 60 seconds by default (configurable from 30 seconds to one hour) |
+| Incomplete scan | Up to 5 minutes |
 
-Uploads, results, and preview images are held in backend memory while needed. They are removed on deletion, expiry, or application shutdown. The 160 MB preview limit does not include the OCR models, decoded images, temporary processing buffers, or browser memory. The app does not use a database or external job queue.
+Uploads, results, and preview images are held in backend memory only while needed, and never written to disk. They are removed when the result is delivered, on cancellation, on expiry, or on application shutdown. The 160 MB preview limit does not include the OCR models, decoded images, temporary processing buffers, or browser memory. The app does not use a database or external job queue.
 
 ## API routes
 
@@ -144,8 +145,7 @@ All routes are under `/api/v1`.
 | `GET /health` | Reports readiness, available OCR languages, usable optional engines, and limits. |
 | `POST /session` | Creates or reuses a signed browser session. |
 | `POST /scans` | Uploads front/back files and starts a scan. |
-| `GET /scans/{id}` | Returns progress, result, or a safe error for that session's scan. |
-| `GET /scans/{id}/image` | Returns that scan's original or corrected preview. |
+| `GET /scans/{id}` | Returns progress, or the final result with its previews; the scan is then deleted. |
 | `DELETE /scans/{id}` | Cancels or deletes that session's scan. |
 | `POST /extract` | Runs a one-file extraction through the same pipeline and cleans it up automatically. |
 

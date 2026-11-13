@@ -2,7 +2,7 @@
 
 Same-origin `/api/v1`; Vite proxies to port 8000. `POST /session` creates an HttpOnly cookie (no credentials in JS); use `credentials: 'same-origin'`. GET `/health` public. POST `/scans` multipart `front` required, `back` optional, `options` JSON string optional. Options `{front:{rotation:0,corners:null},back:{rotation:0,corners:null},language:'latin'}`. Rotation clockwise 0/90/180/270; corners normalized [x,y] four points TL,TR,BR,BL relative to the original EXIF-corrected image BEFORE rotation. Language latin or arabic (optional model availability from health).
 
-POST returns 202 `{scan_id,status:'queued',stage:'queued'}`. GET `/scans/{id}` polls actual stages: queued, detecting_document, correcting_alignment, reading_text, validating_fields, preparing_results, completed, failed. Response `{scan_id,status,stage,result:null,error:null}`; completed `result` is ScanResult below. DELETE `/scans/{id}` cancels/deletes. API errors `{detail: 'safe message'}`. Cookie protects all scan endpoints. Images fetched as blobs via GET `/scans/{id}/image?side=front&variant=corrected` (variant original/corrected; side front/back). No public image URLs. Results expire after 15 minutes.
+POST returns 202 `{scan_id,status:'queued',stage:'queued'}`. GET `/scans/{id}` polls actual stages: queued, detecting_document, correcting_alignment, reading_text, validating_fields, preparing_results, completed, failed. Response `{scan_id,status,stage,result:null,error:null,previews:[]}`; completed `result` is ScanResult below. The completed (or failed) reply is delivered once: it carries `previews` `[{side,variant:'original'|'corrected',jpeg_base64}]` (the original only for PDF uploads) and the scan is deleted immediately afterwards. DELETE `/scans/{id}` cancels/deletes. API errors `{detail: 'safe message'}`. Cookie protects all scan endpoints. Images fetched as blobs via GET `/scans/{id}/image?side=front&variant=corrected` (variant original/corrected; side front/back). No public image URLs. Results expire after 15 minutes.
 
 ScanResult `{scan_id,status:'completed',document_type,issuing_country,fields:Record<string,FieldValue>,mrz:MRZResult,other_fields:FieldValue[],warnings:string[],images:ImageResult[],ocr_lines:OCRLine[],timings_ms:Record<string,number>}`.
 
@@ -10,9 +10,9 @@ FieldValue `{field_name,value:string|null,status:'validated'|'detected'|'uncerta
 Evidence `{source:'visual'|'mrz'|'pattern',raw_text:string,side:'front'|'back',confidence:number|null,bounding_box:number[][]|null}`.
 OCRLine `{text:string,confidence:number,bounding_box:number[][],side:'front'|'back'}` (boxes in corrected image pixels).
 MRZResult `{detected:boolean,format:string|null,raw_lines:string[],checksum_valid:boolean|null,checks:Record<string,boolean|null>,fields:Record<string,string>,warnings:string[]}`.
-ImageResult `{side:'front'|'back',width:number,height:number,corners:number[][],crop_applied:boolean,rotation:number,quality:Record<string,number>,warnings:string[],original_url:string,corrected_url:string}`; corners normalized to original image, before rotation.
+ImageResult `{side:'front'|'back',width:number,height:number,corners:number[][],crop_applied:boolean,rotation:number,quality:Record<string,number>,warnings:string[]}`; corners normalized to original image, before rotation.
 
-Health `{status:'ok'|'degraded',ocr_ready:boolean,languages:string[],retention_seconds:number,max_upload_mb:number,version:string}`.
+Health `{status:'ok'|'degraded',ocr_ready:boolean,languages:string[],retention_seconds:number,max_upload_mb:number,version:string,optional_engines:Record<string,boolean>}`.
 
 ## Extraction and presentation update — 27 October 2026
 

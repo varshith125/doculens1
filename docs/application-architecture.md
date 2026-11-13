@@ -134,8 +134,7 @@ Results carry observed text, selected values, normalization metadata, validation
 | GET | `/api/v1/health` | Readiness and available OCR languages |
 | POST | `/api/v1/session` | Issue local signed session cookie |
 | POST | `/api/v1/scans` | Submit asynchronous scan |
-| GET | `/api/v1/scans/{scan_id}` | Poll stage/result/error |
-| GET | `/api/v1/scans/{scan_id}/image` | Fetch original/corrected preview |
+| GET | `/api/v1/scans/{scan_id}` | Poll stage; the final reply carries the result and previews, then the scan is deleted |
 | DELETE | `/api/v1/scans/{scan_id}` | Cancel/delete owned scan |
 | POST | `/api/v1/extract` | One-shot adapter using the same worker pipeline |
 
@@ -145,7 +144,7 @@ The one-shot extraction adapter waits up to 120 seconds, returns its result with
 
 - Development: browser → Vite at `127.0.0.1:5173` → `/api` proxy → FastAPI at `127.0.0.1:8000`.
 - Built application: FastAPI can serve the existing `frontend/dist` and API from one origin. The Dockerfile provides separate frontend build and Python runtime stages.
-- Default backend limits are 12 MB per uploaded side, eight retained jobs, two jobs per session, 900-second retention, and 160 MiB for retained encoded previews. The preview limit does not cover model sessions, decoded arrays or other working buffers.
+- Default backend limits are 12 MB per uploaded side, eight active jobs, one job per session, deletion as soon as a result is delivered (60-second expiry for undelivered results), and 160 MiB for encoded previews awaiting delivery. The preview limit does not cover model sessions, decoded arrays or other working buffers.
 - Uploaded document bytes, observations and results are processed in memory. User-generated exports and copied data are separately controlled by the user.
 - Session ownership controls access to scans. The local signed cookie is not a full user-account authentication system.
 - RAM storage and signing keys are process-local. Multiple independent backend processes would require shared state or a reviewed routing design. Increasing the thread pool does not eliminate the shared OCR lock.

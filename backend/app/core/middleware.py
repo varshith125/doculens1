@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict, deque
+from urllib.parse import urlsplit
 
 from starlette.responses import JSONResponse
 
@@ -40,7 +41,10 @@ class RequestGuard:
         origin = headers.get(b"origin", b"").decode("latin1")
         unsafe = scope["method"] not in {"GET", "HEAD", "OPTIONS"}
         cross_site = headers.get(b"sec-fetch-site") == b"cross-site"
-        if unsafe and ((origin and origin not in self.allowed_origins) or cross_site):
+        # A page served by this app may always call it, whatever port it was
+        # published on. The host itself is vetted earlier by TrustedHostMiddleware.
+        same_origin = bool(origin) and urlsplit(origin).netloc == headers.get(b"host", b"").decode("latin1")
+        if unsafe and ((origin and not same_origin and origin not in self.allowed_origins) or cross_site):
             return await JSONResponse({"detail": "Request origin is not allowed."}, 403)(
                 scope, receive, send
             )

@@ -165,6 +165,14 @@ def test_session_reuse_and_cookie_flags(client):
     assert "HttpOnly" in cookie and "SameSite=strict" in cookie and "Path=/api/v1" in cookie
 
 
+def test_page_served_on_any_port_may_call_its_own_api(client):
+    # e.g. the image published with `docker run -p 8080:8000`
+    headers = {"Origin": "http://localhost:8080", "Host": "localhost:8080"}
+    assert client.post("/api/v1/session", headers=headers).status_code == 200
+    spoofed = {"Origin": "https://evil.example", "Host": "localhost:8080"}
+    assert client.post("/api/v1/session", headers=spoofed).status_code == 403
+
+
 def test_rejects_foreign_origin(client):
     assert (
         client.post("/api/v1/session", headers={"Origin": "https://evil.example"}).status_code

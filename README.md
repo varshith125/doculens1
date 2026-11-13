@@ -23,6 +23,16 @@ DocuLens is an assistance tool. It does not verify a person's identity, authenti
 The Docker image contains everything: the website, the API, the OCR and caption models, and
 Tesseract. Only [Docker](https://www.docker.com/products/docker-desktop/) is needed.
 
+**Try it in one command** using the published image on
+[Docker Hub](https://hub.docker.com/r/varshith6166/doculens):
+
+```bash
+docker run -p 8000:8000 varshith6166/doculens:latest
+# open http://localhost:8000
+```
+
+**Or build it from this repository** (requires the model files; see below):
+
 ```bash
 docker compose up -d          # build (first time) and start
 # open http://localhost:8000

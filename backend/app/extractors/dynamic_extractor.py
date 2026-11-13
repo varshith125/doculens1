@@ -16,7 +16,7 @@ import numpy as np
 
 from app.extractors.association_assignment import resolve_associations
 from app.extractors.label_matcher import is_caption, match_label, match_labels
-from app.extractors.layout_graph import TextBlock, group_text, intervenes, relation
+from app.extractors.layout_graph import TextBlock, _block_angle, group_text, intervenes, relation
 from app.extractors.semantic_model import TextEncoder
 from app.patterns.common import fold_text
 from app.patterns.dates import normalize_date
@@ -28,7 +28,7 @@ DOC_TITLES = {
     "identity card", "national identity card", "resident identity card",
     "resident identity", "identification card", "national id card", "id card",
     "بطاقة الهوية", "بطاقة هوية", "بطاقة هوية مقيم",
-    "travel document", "refugee travel document", "refugee travet-document",
+    "travel document", "refugee travel document",
     "document de voyage",
     "united arab emirates", "الامارات العربية المتحدة",
     "emirates id", "emirates id card",
@@ -131,6 +131,19 @@ def interpret_blocks(blocks: list[TextBlock], encoder: TextEncoder) -> tuple[dic
         matched = None
         for v in variants[block.id]:
             m = match_label(v)
+            if m is None and "," in v:
+                # "Given name, patronymic": a qualifier follows the caption. Two
+                # different fields in one caption ("Surname, given names") stay unmatched.
+                found = {p.field_name: p for piece in v.split(",")
+                         if (p := match_label(piece.strip())) and not p.value.strip()}
+                m = next(iter(found.values())) if len(found) == 1 else None
+            words = v.split()
+            if m is None and "/" in block.text and 2 <= len(words) <= 4:
+                for i in range(1, len(words)):
+                    tail = match_label(" ".join(words[i:]))
+                    if tail and not tail.value.strip():
+                        m = tail
+                        break
             if m and m.field_name in keys and not m.value.strip():
                 matched = m
                 break
@@ -155,8 +168,52 @@ def heading_strength(block: TextBlock, meaning: Meaning, neighbors: list[TextBlo
     return max(0., min(1., meaning.score + .05 * typography + punctuation))
 
 
+def _overlays(blocks: list[TextBlock], scales: dict[str, float]) -> set[int]:
+    """Watermarks, stamps and banner text: far larger than, or tilted against, the page text.
+
+    Such text lies over the form. It neither captions a field nor separates a
+    caption from its value, although its box may cover both.
+    """
+    result: set[int] = set()
+    for side, scale in scales.items():
+        rows = [b for b in blocks if b.side == side]
+        angle = median(_block_angle(b) for b in rows)
+        result.update(b.id for b in rows if b.height >= 3 * scale
+                      or abs((_block_angle(b) - angle + 90) % 180 - 90) > 6)
+    return result
+
+
+def _caption_continuations(heading: Heading, blocks: list[TextBlock],
+                           heading_sources: frozenset[int], scale: float) -> list[TextBlock]:
+    """Digit-free lines stacked directly beneath a caption that cannot be its value.
+
+    A translated caption that OCR damaged is still part of the caption: it is
+    not an answer lying between the caption and the value printed below it.
+    """
+    field = heading.meaning.field
+    result = []
+
+    def tall(item: TextBlock) -> float:
+        # Box height: ink height is unreliable for small, faint caption text.
+        return max(1., item.box[3] - item.box[1])
+
+    for block in blocks:
+        if (len(block.sources) != 1 or block.side != heading.block.side
+                or block.sources & heading_sources):
+            continue
+        if any(c.isdecimal() for c in block.text) or _is_compatible_value(field, block.text):
+            continue
+        if any(-.6 * tall(part) <= block.box[1] - part.box[3] <= .3 * tall(part)
+               and abs(block.box[0] - part.box[0]) <= .5 * tall(part)
+               and max(tall(block), tall(part)) / min(tall(block), tall(part)) <= 1.5
+               for part in heading.fragments):
+            result.append(block)
+    return result
+
+
 def build_headings(blocks: list[TextBlock], meanings: dict[int, Meaning], vectors: dict[int, np.ndarray]) -> list[Heading]:
     scales = {side: median(b.height for b in blocks if b.side == side) for side in {b.side for b in blocks}}
+    overlays = _overlays(blocks, scales)
     strengths = {}
     for block in blocks:
         nearby = [b for b in blocks if relation(block, b, scales[block.side]) is not None]
@@ -180,7 +237,7 @@ def build_headings(blocks: list[TextBlock], meanings: dict[int, Meaning], vector
     occupied: set[int] = set()
     for block in ordered:
         meaning = meanings[block.id]
-        if fold_text(block.text).strip(" .:") in DOC_TITLES:
+        if fold_text(block.text).strip(" .:") in DOC_TITLES or block.id in overlays:
             continue
         if len(set(m.field_name for m in match_labels(block.text))) > 1:
             continue
@@ -290,6 +347,21 @@ def value_block(value: TextBlock, owner: Heading, blocks: list[TextBlock],
             break
         parts.append(next_line)
         occupied.update(next_line.sources)
+    # A wrapped line may be split on its own row, e.g. by an overlaid mark. Only
+    # a caption recognized by its wording, not one guessed from the meaning of a
+    # lone word, rules out the remainder of that line.
+    firm_labels = frozenset().union(*(heading.sources for heading in headings
+                                      if match_label(heading.block.text) is not None))
+    for index in range(1, len(parts)):
+        rest = _row_continuation(parts[index], blocks, firm_labels | occupied, scale)
+        if rest is not None:
+            part = parts[index]
+            parts[index] = replace(
+                part, text=f"{part.text} {rest.text}", sources=part.sources | rest.sources,
+                rows=part.rows + rest.rows, confidence=min(part.confidence, rest.confidence),
+                box=(min(part.box[0], rest.box[0]), min(part.box[1], rest.box[1]),
+                     max(part.box[2], rest.box[2]), max(part.box[3], rest.box[3])))
+            occupied.update(rest.sources)
     if len(parts) == 1:
         return value
     return replace(value, text="\n".join(p.text for p in parts),
@@ -297,6 +369,59 @@ def value_block(value: TextBlock, owner: Heading, blocks: list[TextBlock],
                    confidence=min(p.confidence for p in parts),
                    box=(min(p.box[0] for p in parts), min(p.box[1] for p in parts),
                         max(p.box[2] for p in parts), max(p.box[3] for p in parts)))
+
+
+def _row_continuation(part: TextBlock, blocks: list[TextBlock], taken: frozenset[int] | set[int],
+                      scale: float) -> TextBlock | None:
+    """The rest of a wrapped line further right on the same baseline, if unambiguous."""
+    best = None
+    for block in blocks:
+        if (len(block.sources) != 1 or block.side != part.side or block.sources & taken
+                or is_caption(block.text)):
+            continue
+        if not 0 < block.box[0] - part.box[2] <= 9 * part.height:
+            continue
+        if abs(block.box[1] + block.box[3] - part.box[1] - part.box[3]) / 2 > .25 * min(part.height, block.height):
+            continue
+        if max(part.height, block.height) / min(part.height, block.height) > 1.2:
+            continue
+        if best is None or block.box[0] < best.box[0]:
+            best = block
+    if best is None:
+        return None
+    for other in blocks:
+        if (len(other.sources) != 1 or other.side != part.side
+                or other.sources & (part.sources | best.sources)):
+            continue
+        # Text directly above it makes it the start of its own cell.
+        if (min(other.box[2], best.box[2]) > max(other.box[0], best.box[0])
+                and 0 <= best.box[1] - other.box[3] <= 1.5 * scale):
+            return None
+        # Another reading on this row lies between the two halves.
+        if (part.box[2] <= (other.box[0] + other.box[2]) / 2 <= best.box[0]
+                and min(other.box[3], part.box[3]) - max(other.box[1], part.box[1])
+                >= .5 * min(other.height, part.height)):
+            return None
+    return best
+
+
+def _english_lines(text: str, encoder: TextEncoder) -> str | None:
+    """The English lines of a value printed in a local language and in English."""
+    lines = text.split("\n")
+    plain = [line for line in lines if line.isascii()]
+    local = [line for line in lines if not line.isascii()]
+    if not plain or not local:
+        return None
+    if encoder.english_probability(" ".join(plain)) < .3:
+        return None
+    if any(encoder.english_probability(line) > .05 for line in local):
+        return None
+    return "\n".join(plain)
+
+
+def _is_date(text: str) -> bool:
+    """A complete calendar date in either day/month order; a two-digit year counts."""
+    return any(normalize_date(text, order, short_year="past")[1] is None for order in ("dmy", "mdy"))
 
 
 def _is_compatible_value(field: str, text: str) -> bool:
@@ -318,7 +443,7 @@ def _is_compatible_value(field: str, text: str) -> bool:
         )
     if field == "document_code":
         return re.fullmatch(r"[A-Za-z]{1,2}", text) is not None
-    if field in {"date_of_birth", "date_of_issue", "date_of_expiry"}:
+    if field in {"date_of_birth", "date_of_issue", "date_of_expiry"} or field.endswith("_number"):
         return any(char.isdecimal() for char in text)
     if field in {"place_of_birth", "place_of_origin", "place_of_issue"}:
         if not any(char.isalpha() for char in text):
@@ -337,9 +462,13 @@ def associate(headings: list[Heading], blocks: list[TextBlock], meanings: dict[i
         return [[] for _ in headings]
     scales = {side: median(b.height for b in blocks if b.side == side) for side in {b.side for b in blocks}}
     heading_sources = frozenset().union(*(heading.sources for heading in headings))
+    overlays = _overlays(blocks, scales)
     candidates: list[list[Association]] = []
     for index, heading in enumerate(headings):
         edges = []
+        continuations = _caption_continuations(
+            heading, blocks, heading_sources, scales[heading.block.side])
+        skipped = overlays | {block.id for block in continuations}
         if heading.block.id in inline:
             value = inline[heading.block.id]
             if _is_compatible_value(heading.meaning.field, value.text):
@@ -356,7 +485,8 @@ def associate(headings: list[Heading], blocks: list[TextBlock], meanings: dict[i
                     continue
                 if not _is_compatible_value(heading.meaning.field, value.text):
                     continue
-                links = [(part, relation(part, value, scales[part.side])) for part in heading.fragments]
+                links = [(part, relation(part, value, scales[part.side]))
+                         for part in (*heading.fragments, *continuations)]
                 links = [(part, link) for part, link in links if link is not None]
                 if not links:
                     continue
@@ -366,7 +496,8 @@ def associate(headings: list[Heading], blocks: list[TextBlock], meanings: dict[i
                     continue
                 # Do not skip an intervening answer on the same axis.
                 if any(intervenes(anchor, value, other, link.direction) for other in blocks
-                       if len(other.sources) == 1 and not other.sources & heading_sources):
+                       if len(other.sources) == 1 and not other.sources & heading_sources
+                       and other.id not in skipped):
                     continue
                 typography = max(-1., min(1., math.log2(value.height / anchor.height)))
                 ocr = min(value.confidence, anchor.confidence)
@@ -382,6 +513,11 @@ def associate(headings: list[Heading], blocks: list[TextBlock], meanings: dict[i
                 if value_meaning.score >= .70 and value_meaning.field == heading.meaning.field:
                     score -= .22
                 grouped = value_block(value, heading, blocks, headings, scales[value.side])
+                if not _is_compatible_value(heading.meaning.field, grouped.text):
+                    grouped = value  # Wrapped lines must not turn a valid value into an invalid one.
+                elif (grouped is not value and heading.meaning.field.startswith("date_of_")
+                      and _is_date(value.text) and not _is_date(grouped.text)):
+                    grouped = value  # A complete date does not continue on the next line.
                 edges.append(Association(index, grouped, max(0., min(1., score)), link.direction))
         candidates.append(edges)
     # The single text box each heading matches best. A merged block that also
@@ -467,6 +603,7 @@ def extract_visual(lines: list[OCRLine], encoder: TextEncoder) -> VisualResult:
     fields: dict[str, FieldValue] = {}
     other: dict[str, FieldValue] = {}
     recognized = [match_label(h.block.text) is not None for h in headings]
+    strong: dict[int, bool] = {}
     for index, heading in enumerate(headings):
         edges = candidates[index]
         chosen, competing = assignment[index]
@@ -482,12 +619,15 @@ def extract_visual(lines: list[OCRLine], encoder: TextEncoder) -> VisualResult:
             edges = [chosen] + [edge for edge in edges if edge is not chosen]
         value_review = bool(best and any(r.review_required for r in best.value.rows))
         heading_review = any(r.review_required for p in heading.fragments for r in p.rows)
+        # Names keep every printed line; other bilingual values show the English one.
+        english = (_english_lines(best.value.text, encoder)
+                   if confident and "name" not in heading.meaning.field else None)
         field = FieldValue(
             field_name=heading.meaning.field, display_label=heading.block.text,
             source="visual", value_kind="printed" if confident else "unresolved",
-            value=best.value.text if confident else None,
+            value=(english or best.value.text) if confident else None,
             observed_value=best.value.text if confident else None,
-            display_value=best.value.text if confident else None,
+            display_value=(english or best.value.text) if confident else None,
             status="detected" if confident and best.score >= .80 and best.value.confidence >= .80 else "uncertain",
             confidence=best.value.confidence if best else None,
             bounding_box=best.value.rows[0].bounding_box if confident else None,
@@ -502,8 +642,12 @@ def extract_visual(lines: list[OCRLine], encoder: TextEncoder) -> VisualResult:
             evidence=([item for edge in edges[:4] for item in evidence(edge.value, heading)]
                       or [item for part in heading.fragments for item in evidence(part)]),
         )
+        if english:
+            field.validation["english_reading_preferred"] = True
+            field.reason += " The English line is shown; the local-language line remains in evidence."
         if value_review or noisy_heading:
             field.status = "uncertain"
+        strong[id(field)] = recognized[index] or heading.meaning.margin >= .20
         target = fields if field.field_name in PRIMARY_FIELDS else other
         existing = target.get(field.field_name)
         if existing is None:
@@ -518,6 +662,10 @@ def extract_visual(lines: list[OCRLine], encoder: TextEncoder) -> VisualResult:
                 existing.evidence.extend(field.evidence)
                 if existing.status != "detected" and field.status == "detected":
                     existing.status = "detected"
+            elif strong.get(id(existing)) != strong.get(id(field)):
+                winner, loser = ((existing, field) if strong.get(id(existing)) else (field, existing))
+                winner.evidence = winner.evidence + [e for e in loser.evidence if e not in winner.evidence]
+                target[field.field_name] = winner
             else:
                 existing_conf = existing.confidence or 0.0
                 field_conf = field.confidence or 0.0

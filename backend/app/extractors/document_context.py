@@ -17,7 +17,7 @@ ID_TITLES = {
 }
 PASSPORT_TITLES = {"passport", "passeport", "pasaporte", "جواز سفر", "جواز السفر"}
 TRAVEL_TITLES = {
-    "travel document", "refugee travel document", "refugee travet-document",
+    "travel document", "refugee travel document",
     "document de voyage",
 }
 UAE_HEADINGS = {"united arab emirates", "الامارات العربية المتحدة"}

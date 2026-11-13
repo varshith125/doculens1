@@ -3,7 +3,7 @@ import re
 
 import pycountry
 
-from app.patterns.common import icao_code_name, known_country_code
+from app.patterns.common import icao_code_name, known_country_code, paired_country_code
 from app.patterns.dates import display_full_date
 from app.patterns.emirates_id import normalize_emirates_id
 
@@ -43,6 +43,10 @@ def _place_of_birth_display(value: str) -> str:
 
 
 def prepare_output(extracted: dict) -> dict:
+    # Product decision: an earlier passport's number is never reported.
+    extracted["fields"].pop("previous_passport_number", None)
+    extracted["other_fields"] = [field for field in extracted["other_fields"]
+                                 if field.field_name != "previous_passport_number"]
     for field in [*extracted["fields"].values(), *extracted["other_fields"]]:
         if field.field_name in NAME_LABELS:
             field.display_label = NAME_LABELS[field.field_name]
@@ -65,22 +69,40 @@ def prepare_output(extracted: dict) -> dict:
             # Keep ICAO and ISO representations separate. In particular D<<
             # encodes Germany in the MRZ; replacing it with DEU loses that reading.
             code = (field.value.strip().upper().rstrip("<") if key == "country_code"
-                    else known_country_code(field.value) or field.value.strip().upper())
+                    else paired_country_code(field.value) or field.value.strip().upper())
             name = icao_code_name(code, nationality=key == "nationality")
+            from_mrz = False
+            mrz = extracted.get("mrz")
+            if not name and field.value_kind == "printed" and mrz is not None and mrz.checksum_valid:
+                # Printed wording in a language without a local alias ("Española",
+                # "Utopian"): the checked MRZ states the same field as an ICAO code.
+                mrz_code = (mrz.fields.get("nationality" if key == "nationality" else "issuing_country")
+                            or "").rstrip("<")
+                mrz_name = icao_code_name(mrz_code, nationality=key == "nationality") if mrz_code else None
+                if mrz_name:
+                    code, name, from_mrz = mrz_code, mrz_name, True
+                    field.validation["code_from_checked_mrz"] = True
+                    field.normalization_basis = (
+                        "The printed wording is kept; its code comes from the checked MRZ, "
+                        "because this wording is not in the local country list."
+                    )
             country = pycountry.countries.get(alpha_3="DEU" if code == "D" else code)
             field.validation["iso_country_code"] = country is not None
             field.validation["icao_country_code"] = name is not None
             if name:
                 field.code = code
-                field.code_source = field.source
+                field.code_source = "mrz" if from_mrz else field.source
                 field.country_name = name
                 if key == "issuing_country":
                     field.value = field.display_value = name
-                    field.normalization_basis = "Country/state name resolved from this field's code or printed wording; original reading remains in raw and evidence."
+                    if not from_mrz:
+                        field.normalization_basis = "Country/state name resolved from this field's code or printed wording; original reading remains in raw and evidence."
                 elif key == "country_code":
                     field.value = field.display_value = code
                 else:
-                    wording = field.value if field.value_kind == "printed" else name
+                    # A bilingual pair resolved through one part shows the English name.
+                    wording = (field.value if field.value_kind == "printed"
+                               and (from_mrz or known_country_code(field.value)) else name)
                     field.display_value = f"{wording} ({code})"
             elif field.status != "conflicting":
                 field.status = "uncertain"

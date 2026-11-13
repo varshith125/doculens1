@@ -12,7 +12,9 @@ __pycache__/
 .uv-cache/
 *.log
 *.pid
-models/
+models/*
+!models/README.md
 test-results/
 coverage/
 *.tsbuildinfo
+synthetic-passports/

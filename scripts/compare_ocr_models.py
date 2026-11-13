@@ -14,13 +14,14 @@ from PIL import Image, ImageDraw
 from rapidfuzz.distance import Levenshtein
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+from evaluate_accuracy import EXPECTED
+from evaluate_accuracy import cases as accuracy_cases
+
 from app.core.store import ScanStore
 from app.extractors.field_extractor import extract_fields
 from app.schemas.models import ScanOptions
 from app.services.ocr import OCRService
 from app.services.pipeline import run_scan
-from evaluate_accuracy import EXPECTED
-from evaluate_accuracy import cases as accuracy_cases
 
 
 def fixture(fmt, distortion):
@@ -31,8 +32,8 @@ def fixture(fmt, distortion):
 
     def write(x, y, text, mono=False):
         face = font(30 if mono else 28, mono)
-        l, t, r, b = draw.textbbox((x, y), text, font=face)
-        polygons.append([[l, t], [r, t], [r, b], [l, b]])
+        left, top, right, bottom = draw.textbbox((x, y), text, font=face)
+        polygons.append([[left, top], [right, top], [right, bottom], [left, bottom]])
         labels.append(text)
         draw.text((x, y), text, fill="black", font=face)
 

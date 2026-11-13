@@ -1,0 +1,17 @@
+sample,document,image_quality,correct,scored,notes
+01,USA passport,Good photo,14,14,All fields correct
+02,USA passport,Good photo,14,14,All fields correct
+03,Ireland passport,Heavily blurred,9,14,Apostrophe dropped from surname and full name; place of birth and authority missing; issue date wrong
+04,India passport,Tiny (214 x 148 px),7,14,Surname misread; nationality sex place of birth place of issue and issue date missing
+05,USA passport,"Good photo, tilted",14,14,All fields correct
+06,USA passport,Sample image,12,14,Authority shortened; issuing country code missing
+07,UAE resident ID card,"Screenshot, front and back",12,12,All fields correct
+08,India passport,Blurred and pixelated,5,13,Surname misread; nationality dates and places missing
+09,Greece passport,Very small (329 x 232 px),11,14,Place of birth issue date and authority missing
+10,Greece passport,Same image as 09,11,14,Place of birth issue date and authority missing
+11,Slovakia passport,Official specimen,10,14,Issue and expiry dates wrong; place of birth and authority missing
+12,USA passport,Sample with damaged MRZ,11,14,Passport number and expiry wrong; authority missing
+13,US refugee travel document,Very small (330 x 222 px),6,10,Labelled as passport; sex missing; expiry not converted to a date
+14,Bangladesh passport,"Phone photo, two pages",12,14,Full name taken from father's name; authority missing
+15,Switzerland passport,Official specimen,13,13,All fields correct
+16,World Passport,"Scan, number blurred out",11,13,Caption text returned as passport number; full name taken from instruction text

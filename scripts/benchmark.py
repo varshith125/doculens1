@@ -17,10 +17,11 @@ import psutil
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+from generate_fixture import specimen_image
+
 from app.core.config import Settings
 from app.main import create_app
 from app.services.ocr import OCRService
-from generate_fixture import specimen_image
 
 
 def percentile(values, fraction):

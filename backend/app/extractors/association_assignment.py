@@ -79,6 +79,8 @@ def resolve_associations(candidates, headings, minimum=.70, ambiguity_margin=.07
                 weights[row, column] = edge.score
                 choices[row, column] = edge
     assignment, total = maximum_assignment(weights)
+    # Abstention columns are interchangeable; compare only the values taken.
+    taken = [column if column < count else -1 for column in assignment]
     result = []
     for row, column in enumerate(assignment):
         chosen = choices.get((row, column))
@@ -87,6 +89,12 @@ def resolve_associations(candidates, headings, minimum=.70, ambiguity_margin=.07
             continue
         alternative = weights.copy()
         alternative[row, column] = -1e6
-        _, competing = maximum_assignment(alternative)
-        result.append((chosen, total - competing < ambiguity_margin))
+        rival, competing = maximum_assignment(alternative)
+        rival_taken = [c if c < count else -1 for c in rival]
+        # Ambiguity needs a rival reading: another value for this heading or
+        # another heading for this value. Merely dropping an uncontested value
+        # is not a competing interpretation; `minimum` already guards that.
+        contested = rival_taken[row] != -1 or any(
+            a != b for i, (a, b) in enumerate(zip(taken, rival_taken, strict=True)) if i != row)
+        result.append((chosen, contested and total - competing < ambiguity_margin))
     return result

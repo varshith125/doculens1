@@ -96,7 +96,7 @@ LABEL_ALIASES: dict[str, tuple[str, ...]] = {
     "first_name": ("first name", "first names"),
     "full_name": ("full name", "name", "naam", "الاسم الكامل", "الاسم"),
     "middle_names": (
-        "middle names", "middle name", "middlo nameydeuxime prenom",
+        "middle names", "middle name",
     ),
     "nationality": (
         "nationality", "nationalite", "nacionalidad", "nazionalita",
@@ -321,8 +321,11 @@ def normalize_sex(value: str, heading: str = "") -> str | None:
                              if len(key) == 1 and code in extra.values()}
         if wording in folded_heading or set(tokens) == pair:
             markings.update(extra)
-    readings = {markings.get(token) for token in tokens}
-    return readings.pop() if len(readings) == 1 and None not in readings else None
+    # A local-language initial may be paired with the standard marking (K/M).
+    # Two different recognized markings (F/M) remain unresolved.
+    known = {markings[token] for token in tokens if token in markings}
+    recognizable = all(token in markings or (len(token) == 1 and token.isalpha()) for token in tokens)
+    return known.pop() if len(known) == 1 and recognizable else None
 
 
 def fold_text(value: str) -> str:
@@ -331,7 +334,20 @@ def fold_text(value: str) -> str:
 
 
 def country_code(value: str) -> str:
-    return known_country_code(value) or value.strip().upper()
+    return paired_country_code(value) or value.strip().upper()
+
+
+def paired_country_code(value: str) -> str | None:
+    """Code of a "local wording/English wording" pair whose recognized parts agree.
+
+    The unrecognized part is the same wording in a language with no alias here
+    (or a misread of it). Two parts naming different countries stay unresolved.
+    """
+    code = known_country_code(value)
+    if code or "/" not in value:
+        return code
+    codes = {found for part in value.split("/") if (found := known_country_code(part))}
+    return codes.pop() if len(codes) == 1 else None
 
 
 @lru_cache(maxsize=1)

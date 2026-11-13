@@ -147,6 +147,64 @@ def _multilingual_caption(text: str) -> LabelMatch | None:
                       approximate=any(distance for _, distance, _ in hits) or len(hits) != len(segments))
 
 
+@lru_cache(maxsize=1)
+def _plain_captions() -> tuple[tuple[str, str, bool], ...]:
+    """Latin-script captions with spacing removed, for damaged-caption matching."""
+    rows = []
+    for additional, mapping in ((False, LABEL_ALIASES), (True, ADDITIONAL_LABELS)):
+        for name, values in mapping.items():
+            for alias in values:
+                word = re.sub(r"[^a-z]", "", fold_text(alias))
+                if word.isascii() and len(word) >= 6:
+                    rows.append((word, name, additional))
+    return tuple(rows)
+
+
+def _approximate_caption(text: str) -> LabelMatch | None:
+    """A printed caption that OCR damaged: a typo, a dropped letter, or its
+    first letters clipped at the image edge (``Da e of Birth:``, ``suing Date /``).
+
+    Only text that ends its heading with a colon or a slash qualifies, so a
+    value such as a name is never read as a caption. The match must point at
+    a single field and is always marked approximate for review.
+    """
+    explicit = re.search(r"[:：/]", text)
+    if explicit is None:
+        return None
+    heading = text[:explicit.start()]
+    if not re.fullmatch(r"[A-Za-z][A-Za-z .'-]{3,40}", heading.strip()):
+        return None
+    if len(heading.split()) > 5:
+        return None
+    word = re.sub(r"[^a-z]", "", fold_text(heading))
+    if len(word) < 6:
+        return None
+    found: dict[str, tuple[int, bool]] = {}
+    for caption, name, additional in _plain_captions():
+        shorter = min(len(word), len(caption))
+        limit = 3 if shorter >= 10 else 2 if shorter >= 8 else 1
+        distance = None
+        if abs(len(word) - len(caption)) <= limit:
+            distance = _caption_distance(word, caption)
+        # Clipped start: the visible text is the end of a long caption.
+        if (distance is None or distance > limit) and len(word) >= 8 \
+                and 1 <= len(caption) - len(word) <= 3 and caption.endswith(word):
+            distance = len(caption) - len(word)
+            limit = 3
+        if distance is not None and distance <= limit:
+            best = found.get(name)
+            if best is None or distance < best[0]:
+                found[name] = (distance, additional)
+    if not found:
+        return None
+    nearest = min(distance for distance, _ in found.values())
+    names = [name for name, (distance, _) in found.items() if distance == nearest]
+    if len(names) != 1:
+        return None
+    value = text[explicit.end():].strip() if explicit[0] in ":：" else ""
+    return LabelMatch(names[0], value, found[names[0]][1], heading.strip(), approximate=True)
+
+
 def _fold_with_positions(text: str) -> tuple[str, list[int]]:
     letters, positions = [], []
     for index, char in enumerate(text):
@@ -296,6 +354,10 @@ def _match_label(text: str) -> LabelMatch | None:
                     )
                 return None
             break
+    damaged = _approximate_caption(text)
+    if damaged:
+        return LabelMatch(damaged.field_name, damaged.value, damaged.additional,
+                          prefix + (damaged.display_label or ""), True)
     return None
 
 

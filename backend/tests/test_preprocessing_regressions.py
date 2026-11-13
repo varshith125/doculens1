@@ -44,7 +44,9 @@ def test_full_scan_preserves_size_and_only_brightens_dark_images(brightness):
 
 def test_oriented_scan_passes_backup_engines_to_region_recovery(monkeypatch):
     reader = OCRService()
-    fake_engine = lambda *args, **kwargs: SimpleNamespace()
+    def fake_engine(*_args, **_kwargs):
+        return SimpleNamespace()
+
     monkeypatch.setattr(reader, "_get_engine", lambda *args, **kwargs: fake_engine)
     monkeypatch.setattr(reader, "_read", lambda *args, **kwargs: [])
     monkeypatch.setattr(reader, "_recover_small_captions", lambda *args: None)

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-type MotionKind = "page" | "upload" | "progress" | "results" | "highlight" | "scan";
+type MotionKind = "upload" | "progress" | "results" | "highlight" | "scan";
 
 /** Scoped GSAP animations never gate rendering or document processing. */
 export function useMotion(kind: MotionKind, changeKey: unknown = null) {
@@ -18,22 +18,23 @@ export function useMotion(kind: MotionKind, changeKey: unknown = null) {
         media.add(
           "(prefers-reduced-motion: no-preference)",
           () => {
+            // Framer Motion owns panel entrances. GSAP only animates local
+            // feedback and active processing; there are no idle background loops.
             const selectors = {
-              page: ".hero-copy, .hero-note, .workspace-heading",
-              upload: ".file-info, .file-icon, .document-art",
+              upload: ".file-info, .file-icon, .upload-symbol",
               progress: "h3, .progress-description, .processing-steps .current",
-              results: ".result-summary, [data-result-field]",
+              results: ".visible-mrz, .technical-details, .result-actions",
               highlight: ".evidence-overlay polygon",
               scan: ".scan-line",
             };
-            const elements = Array.from(
-              scope.querySelectorAll(selectors[kind]),
-            ).slice(0, 12);
+            const elements = selectors[kind]
+              ? Array.from(scope.querySelectorAll(selectors[kind])).slice(0, 12)
+              : [];
             if (elements.length) {
               gsap.from(elements, {
-                y: kind === "page" ? 12 : 7,
+                y: 5,
                 opacity: 0.72,
-                duration: 0.38,
+                duration: 0.24,
                 stagger: 0.035,
                 ease: "power2.out",
                 clearProps: "transform,opacity",
@@ -48,9 +49,17 @@ export function useMotion(kind: MotionKind, changeKey: unknown = null) {
               });
             }
             if (kind === "scan") {
-              gsap.fromTo(scope.querySelector(".scan-line"), { top: "10%" }, {
-                top: "90%", duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut",
-              });
+              gsap.fromTo(
+                scope.querySelector(".scan-line"),
+                { top: "10%" },
+                {
+                  top: "90%",
+                  duration: 2,
+                  repeat: -1,
+                  yoyo: true,
+                  ease: "sine.inOut",
+                },
+              );
             }
           },
           scope,

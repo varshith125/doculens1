@@ -91,6 +91,47 @@ def decode_pdf(data: bytes) -> np.ndarray:
         return _decode_pdf(data)
 
 
+def _embedded_scan(page, width: float, height: float) -> tuple[np.ndarray | None, float | None]:
+    """Use a scanned page's own pixels instead of drawing them again.
+
+    Returns the embedded picture when it is the page's only content, placed
+    upright. Otherwise returns the pixel density (pixels per point) of the
+    main picture on a page without text, or neither when the page has text.
+    Redrawing a scan at another size blurs small print; its pixels are final.
+    """
+    import pypdfium2.raw as raw
+
+    try:
+        objects = list(page.get_objects(max_depth=2))
+        images = [item for item in objects if item.type == raw.FPDF_PAGEOBJ_IMAGE]
+        if not images or any(item.type == raw.FPDF_PAGEOBJ_TEXT for item in objects):
+            return None, None
+        largest, area, density = None, 0.0, None
+        for item in images:
+            left, bottom, right, top = item.get_bounds()
+            covered = max(0.0, right - left) * max(0.0, top - bottom)
+            if covered > area and right > left:
+                largest, area = item, covered
+                density = item.get_px_size()[0] / (right - left)
+        if largest is None or area < 0.25 * width * height or not np.isfinite(density) or density <= 0:
+            return None, None
+        a, b, c, d, _, _ = largest.get_matrix().get()
+        upright = a > 0 and d > 0 and abs(b) < 1e-3 * a and abs(c) < 1e-3 * d
+        if len(objects) == 1 and upright:
+            bitmap = largest.get_bitmap(render=False)
+            try:
+                if (bitmap.width * bitmap.height <= WORKING_PIXELS
+                        and max(bitmap.width, bitmap.height) <= WORKING_EDGE):
+                    rgb = np.asarray(bitmap.to_pil().convert("RGB")).copy()
+                    return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR), density
+            finally:
+                bitmap.close()
+        return None, density
+    except Exception:
+        # Inspection is an optimization; any doubt falls back to drawing the page.
+        return None, None
+
+
 def _decode_pdf(data: bytes) -> np.ndarray:
     import pypdfium2 as pdfium
 
@@ -103,7 +144,12 @@ def _decode_pdf(data: bytes) -> np.ndarray:
                 width, height = page.get_size()
                 if not np.isfinite([width, height]).all() or min(width, height) <= 0:
                     raise ImageValidationError("Invalid PDF page dimensions.")
-                scale = min(3, WORKING_EDGE / max(width, height),
+                scanned, density = _embedded_scan(page, width, height)
+                if scanned is not None:
+                    return scanned
+                # Vector text is drawn at up to 3x. A page of pictures is drawn at
+                # the main picture's own resolution so that it is not resampled.
+                scale = min(density or 3, WORKING_EDGE / max(width, height),
                             (WORKING_PIXELS / (width * height)) ** 0.5)
                 bitmap = page.render(scale=scale)
                 try:
@@ -415,6 +461,21 @@ def deskew_image(image: np.ndarray, angle: float) -> np.ndarray:
     return cv2.warpAffine(
         image, mat, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
     )
+
+
+DARK_PAGE_BRIGHTNESS = 85.0
+
+
+def brighten_if_dark(image: np.ndarray, brightness: float) -> np.ndarray | None:
+    """Gamma-brighten a dark page; None when the page is bright enough already.
+
+    A bright page is not evidence of glare, so bright images are never changed.
+    """
+    if brightness >= DARK_PAGE_BRIGHTNESS:
+        return None
+    gamma = max(0.4, brightness / 120.0)
+    table = np.array([((i / 255.0) ** gamma) * 255 for i in range(256)]).astype("uint8")
+    return cv2.LUT(image, table)
 
 
 def enhance_for_ocr(image: np.ndarray) -> np.ndarray:

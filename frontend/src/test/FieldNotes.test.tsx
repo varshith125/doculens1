@@ -9,13 +9,25 @@ it.each([
   ["country_code", "Issuing Country Code", "IND"],
   ["authority_code", "Authority Code", null],
 ])("keeps %s explanations optional and collapsed", (key, heading, value) => {
-  const reason = "MRZ fallback: the printed field is missing or unreadable. Verify the source.";
+  const reason =
+    "MRZ fallback: the printed field is missing or unreadable. Verify the source.";
   const field: FieldValue = {
-    ...result.fields.surname, field_name: key, value, status: "uncertain",
-    value_kind: value ? "mrz" : "unresolved", reason,
+    ...result.fields.surname,
+    field_name: key,
+    value,
+    status: "uncertain",
+    value_kind: value ? "mrz" : "unresolved",
+    reason,
   };
-  render(<Results result={{ ...result, fields: key === "authority_code" ? {} : { [key]: field },
-    other_fields: key === "authority_code" ? [field] : [] }} />);
+  render(
+    <Results
+      result={{
+        ...result,
+        fields: key === "authority_code" ? {} : { [key]: field },
+        other_fields: key === "authority_code" ? [field] : [],
+      }}
+    />,
+  );
   const row = screen.getByText(heading).closest(".field-row") as HTMLElement;
   const notes = within(row).getByLabelText(`Reading notes for ${heading}`);
   expect(notes).toBeVisible();
@@ -41,22 +53,49 @@ it("does not add an empty dropdown to a field with no notes", () => {
 });
 
 it.each([
-  ["place_of_birth", "Place of Birth", "layout", { heading_unresolved: true },
-    "Possible text found — field heading unclear"],
-  ["date_of_issue", "Date of Issue", "visual", { calendar_date: false },
-    "Date reading is invalid — check the original"],
-  ["country_code", "Issuing Country Code", "mrz", {},
-    "MRZ reading could not be confirmed"],
-] as const)("explains why %s has no selected value without displaying a candidate as fact",
+  [
+    "place_of_birth",
+    "Place of Birth",
+    "layout",
+    { heading_unresolved: true },
+    "Possible text found — field heading unclear",
+  ],
+  [
+    "date_of_issue",
+    "Date of Issue",
+    "visual",
+    { calendar_date: false },
+    "Date reading is invalid — check the original",
+  ],
+  [
+    "country_code",
+    "Issuing Country Code",
+    "mrz",
+    {},
+    "MRZ reading could not be confirmed",
+  ],
+] as const)(
+  "explains why %s has no selected value without displaying a candidate as fact",
   (key, heading, source, validation, message) => {
     const field: FieldValue = {
-      ...result.fields.surname, field_name: key, value: null, value_kind: "unresolved",
-      source, status: "uncertain", validation, observed_value: "UNCONFIRMED READING",
+      ...result.fields.surname,
+      field_name: key,
+      value: null,
+      value_kind: "unresolved",
+      source,
+      status: "uncertain",
+      validation,
+      observed_value: "UNCONFIRMED READING",
       reason: "The original reading is retained for review.",
     };
     render(<Results result={{ ...result, fields: { [key]: field } }} />);
     const row = screen.getByText(heading).closest(".field-row") as HTMLElement;
     expect(within(row).getByText(message)).toBeVisible();
-    expect(within(row).queryByText("UNCONFIRMED READING")).not.toBeInTheDocument();
-    expect(within(row).queryByRole("button", { name: /^Copy/ })).not.toBeInTheDocument();
-  });
+    expect(
+      within(row).queryByText("UNCONFIRMED READING"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row).queryByRole("button", { name: /^Copy/ }),
+    ).not.toBeInTheDocument();
+  },
+);

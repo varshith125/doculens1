@@ -1,6 +1,7 @@
 """Exercise the running HTTP server using only a fictional generated image."""
 
 import argparse
+import base64
 import io
 import time
 
@@ -24,29 +25,26 @@ def main():
         )
         response.raise_for_status()
         scan_id = response.json()["scan_id"]
-        try:
-            deadline = time.monotonic() + 60
-            while time.monotonic() < deadline:
-                body = client.get(f"/api/v1/scans/{scan_id}").json()
-                if body["status"] in {"completed", "failed"}:
-                    break
-                time.sleep(0.1)
-            assert body["status"] == "completed", body.get("error")
-            result = body["result"]
-            assert result["fields"]["surname"]["value"] == "ERIKSSON"
-            assert result["ocr_lines"]
-            image = client.get(result["images"][0]["corrected_url"])
-            assert image.status_code == 200 and image.content.startswith(b"\xff\xd8")
-            with httpx.Client(base_url=args.base) as outsider:
-                outsider.post("/api/v1/session")
-                assert outsider.get(f"/api/v1/scans/{scan_id}").status_code == 404
-            print(
-                f"HTTP smoke passed: real OCR, {len(result['fields'])} fields, protected corrected image, ownership enforced."
-            )
-        finally:
-            client.delete(f"/api/v1/scans/{scan_id}")
-            assert client.get(f"/api/v1/scans/{scan_id}/image").status_code == 404
-            print("Scan deleted; image is no longer accessible.")
+        with httpx.Client(base_url=args.base) as outsider:
+            outsider.post("/api/v1/session")
+            assert outsider.get(f"/api/v1/scans/{scan_id}").status_code == 404
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            body = client.get(f"/api/v1/scans/{scan_id}").json()
+            if body["status"] in {"completed", "failed"}:
+                break
+            time.sleep(0.1)
+        assert body["status"] == "completed", body.get("error")
+        result = body["result"]
+        assert result["fields"]["surname"]["value"] == "ERIKSSON"
+        assert result["ocr_lines"]
+        corrected = next(p for p in body["previews"] if p["variant"] == "corrected")
+        assert base64.b64decode(corrected["jpeg_base64"]).startswith(b"\xff\xd8")
+        assert client.get(f"/api/v1/scans/{scan_id}").status_code == 404
+        print(
+            f"HTTP smoke passed: real OCR, {len(result['fields'])} fields, ownership enforced, "
+            "and the scan was deleted as soon as its result was delivered."
+        )
 
 
 if __name__ == "__main__":

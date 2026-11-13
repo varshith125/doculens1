@@ -53,21 +53,54 @@ doculens/
     app/services/imaging.py        Image/PDF decoding, cropping, and quality checks
     app/services/ocr.py            Local model loading and text recognition
     app/services/output.py         Result formatting and checks
-    app/extractors/                Labels, layout, MRZ, and field matching
-    app/patterns/                  Date, country, and document-number rules
-    tests/                         Backend checks
+    app/services/tesseract.py      Optional Tesseract backup reader
+    app/extractors/                Turning OCR text into fields (see below)
+    app/patterns/                  Date, country, name and document-number rules
+    tests/                         Backend checks (pytest)
   frontend/
-    src/App.tsx                    Connects the main screen
-    src/components/                Upload, crop, progress, preview, and results UI
-    src/hooks/                     Scan lifecycle and cleanup
+    src/App.tsx                    Page layout: header, hero, workspace
+    src/components/                Upload, crop, viewer, progress, results, panel transitions
+    src/hooks/                     Scan lifecycle, backend health, GSAP effects
+    src/lib/                       Field formatting, review edits, motion presets
+    src/styles/                    index.css (base) and redesign.css (current look)
     src/services/api.ts            Browser-to-backend requests
     src/types/scan.ts              Frontend result types
-    src/test/                      Frontend checks
+    src/test/                      Frontend checks (Vitest)
     dist/                          Built website served by FastAPI
-  models/                          Optional local OCR models and sample fixtures
-  scripts/                         Evaluation, model, benchmark, and packaging tools
-  docs/                            Detailed technical notes and saved reports
+  models/                          Arabic recognition model and the semantic caption model
+  scripts/                         Evaluation, model setup, benchmark and packaging tools
+  docs/                            Reference notes; dated reviews and results in docs/reports/
 ```
+
+### Field extraction, in reading order
+
+| Module | Role |
+| --- | --- |
+| `extractors/field_extractor.py` | Entry point: runs the steps below and reconciles printed values with the MRZ |
+| `extractors/label_matcher.py` | Recognises captions, including damaged ones (typos, clipped letters) |
+| `extractors/dynamic_extractor.py` | Pairs captions with values by layout and caption meaning |
+| `extractors/layout_graph.py`, `spatial_matcher.py`, `typography.py` | Geometry: grouping lines, direction and distance between text |
+| `extractors/association_assignment.py` | Gives each value to at most one caption; flags real ambiguity |
+| `extractors/mrz_parser.py` | Finds and checks TD1, TD2 and TD3 machine-readable zones |
+| `extractors/mrz_anchor.py` | Uses a checked MRZ to identify printed values whose captions are unreadable |
+| `extractors/document_context.py`, `caption_context.py` | Document type and caption context |
+| `extractors/layout_fallback.py` | Last-resort positions for passport biodata pages |
+| `extractors/semantic_model.py` | Local multilingual model for caption meaning |
+
+Printed values come first. A checked MRZ confirms them or fills gaps; an MRZ that fails its own checks never replaces a printed reading, and any disagreement is shown as conflicting.
+
+### Models
+
+| Model | Location | Used for |
+| --- | --- | --- |
+| PP-OCRv6 medium detector | `DOCULENS_OCR_MEDIUM_DET_PATH` | Finding text lines |
+| PP-OCRv6 small recogniser | `DOCULENS_OCR_MODELS_DIR` | First reading of every line |
+| PP-OCRv6 medium recogniser | `DOCULENS_OCR_MEDIUM_REC_PATH` | Rereading uncertain lines |
+| Orientation classifier | `DOCULENS_OCR_MODELS_DIR` | Upright or upside-down text |
+| PP-OCRv6 small detector | `DOCULENS_OCR_MODELS_DIR` | Fallback only, when no medium detector is configured |
+| Arabic PP-OCRv4 recogniser | `models/` | Arabic reading language |
+| Multilingual sentence model | `models/semantic/` | Caption meaning in any language |
+| Tesseract (optional) | system install | Backup reading of the MRZ and unclear text |
 
 The `.venv` and `frontend/node_modules` folders hold installed dependencies. `frontend/dist` is the built website. The backend source, model files, local settings, and cached files have different roles; the app needs the source, settings, and required models to run.
 
@@ -83,7 +116,7 @@ The latest saved benchmark in this project was recorded on **26 October 2026**. 
 | OCR model startup check | 3.76 seconds | Time to load and check the models; Python import time was not included. |
 | Backend process memory | 165.84 MB | Resident-memory snapshot at the end of the benchmark, not the peak. |
 
-These figures were measured with the small OCR models on a clean synthetic image and do not describe real photographs. The 11 November 2026 run over 16 real passport photos with the Medium models averaged 11.86 seconds per scan (6.59–21.96 s) at 64.86% normalized field accuracy; see [`docs/full-document-accuracy-2026-11-11.md`](docs/full-document-accuracy-2026-11-11.md). The figures in the table describe that test image, computer, and software setup. A two-sided scan, larger or harder-to-read image, different OCR model, or slower computer can take longer. The 165.84 MB figure is for the backend process only; it does not include the browser, other computer processes, or peak temporary memory. The benchmark file is [`docs/benchmark.json`](docs/benchmark.json).
+These figures were measured with the small OCR models on a clean synthetic image and do not describe real photographs. The 11 November 2026 run over 16 real passport photos with the Medium models averaged 11.86 seconds per scan (6.59–21.96 s) at 64.86% normalized field accuracy; see [`docs/reports/full-document-accuracy-2026-11-11.md`](docs/reports/full-document-accuracy-2026-11-11.md). The figures in the table describe that test image, computer, and software setup. A two-sided scan, larger or harder-to-read image, different OCR model, or slower computer can take longer. The 165.84 MB figure is for the backend process only; it does not include the browser, other computer processes, or peak temporary memory. The benchmark file is [`docs/benchmark.json`](docs/benchmark.json).
 
 The default backend uses one scan worker, and OCR model calls are serialized. If several people submit scans at the same time, later scans can wait in the queue. Raising the worker count does not make the OCR model itself run multiple scans at once.
 

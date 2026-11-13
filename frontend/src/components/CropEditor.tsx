@@ -99,7 +99,7 @@ export function CropEditor({ image, initial, onApply, onClose }: Props) {
           <rect
             width="1000"
             height="1000"
-            fill="rgba(13,38,35,.5)"
+            fill="rgba(22,33,49,.5)"
             mask="url(#crop-mask)"
           />
           <polygon
@@ -107,7 +107,7 @@ export function CropEditor({ image, initial, onApply, onClose }: Props) {
               .map(([x, y]) => `${x * 1000},${y * 1000}`)
               .join(" ")}
             fill="none"
-            stroke="#d5f3ba"
+            className="crop-boundary"
             strokeWidth="4"
             vectorEffect="non-scaling-stroke"
           />

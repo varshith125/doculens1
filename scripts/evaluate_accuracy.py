@@ -8,6 +8,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+
 from app.extractors.field_extractor import extract_fields
 from app.services.ocr import OCRService
 

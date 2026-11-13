@@ -1,11 +1,12 @@
 import asyncio
+import base64
 import contextlib
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import anyio
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
@@ -21,7 +22,7 @@ from app.core.config import Settings, get_settings
 from app.core.middleware import RequestGuard
 from app.core.security import COOKIE_NAME, SESSION_LIFETIME, Sessions, require_owner
 from app.core.store import CapacityError, ScanStore
-from app.schemas.models import HealthResponse, JobResponse, ScanOptions
+from app.schemas.models import HealthResponse, JobResponse, Preview, ScanOptions
 from app.services.ocr import OCRService
 from app.services.pipeline import run_scan
 
@@ -29,15 +30,25 @@ Owner = Annotated[str, Depends(require_owner)]
 logger = logging.getLogger(__name__)
 
 
-def optional_engines(engine: OCRService, config: Settings) -> dict[str, bool]:
-    """Which optional engines can run here; probes are cached by each service."""
-    def available(name: str) -> bool:
-        service = getattr(engine, name, None)
-        return bool(service is not None and service.is_available())
+def optional_engines(engine: OCRService) -> dict[str, bool]:
+    """Which optional engines can run on this machine; each probe is cached."""
+    tesseract = getattr(engine, "tesseract", None)
+    return {"tesseract": bool(tesseract is not None and tesseract.is_available())}
 
-    return {
-        "tesseract": available("tesseract"),
-    }
+
+def warm_semantic_model(directory: str) -> None:
+    """Load the caption model before the first scan instead of during it."""
+    from app.extractors.dynamic_extractor import _schema_vectors
+    from app.extractors.semantic_model import SemanticUnavailable, get_encoder
+
+    try:
+        encoder = get_encoder(directory)
+        encoder.encode(["NAME"])
+        encoder.english_probability("NAME")
+        _schema_vectors(encoder)
+    except SemanticUnavailable as exc:
+        # Scans still run; field extraction then reports the missing model itself.
+        logger.warning("Semantic caption model unavailable: %s", exc)
 
 
 def create_app(settings: Settings | None = None, ocr: OCRService | None = None) -> FastAPI:
@@ -66,29 +77,10 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
         )
         try:
             await anyio.to_thread.run_sync(engine.warmup)
-
-            def _warmup_semantic():
-                try:
-                    from app.extractors.dynamic_extractor import _schema_vectors
-                    from app.extractors.semantic_model import get_encoder
-                    encoder = get_encoder(config.semantic_models_dir)
-                    encoder.encode(["NAME"])
-                    encoder.english_probability("NAME")
-                    _schema_vectors(encoder)
-                except Exception:
-                    pass
-
-            await anyio.to_thread.run_sync(_warmup_semantic)
-            requested = {
-                "tesseract": config.enable_tesseract_backup,
-            }
-            usable = await anyio.to_thread.run_sync(optional_engines, engine, config)
-            for name, wanted in requested.items():
-                if wanted and not usable[name]:
-                    logger.warning(
-                        "Optional engine %r is enabled but unavailable on this machine; "
-                        "scans continue without it.", name,
-                    )
+            await anyio.to_thread.run_sync(warm_semantic_model, config.semantic_models_dir)
+            usable = await anyio.to_thread.run_sync(optional_engines, engine)
+            if config.enable_tesseract_backup and not usable["tesseract"]:
+                logger.warning("Tesseract backup is enabled but not installed; scans continue without it.")
         except Exception:
             if config.ocr_models_dir or config.ocr_medium_det_path or config.ocr_medium_rec_path:
                 application.state.executor.shutdown(wait=False, cancel_futures=True)
@@ -148,7 +140,7 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
             "retention_seconds": config.retention_seconds,
             "max_upload_mb": config.max_upload_mb,
             "version": "1.0.0",
-            "optional_engines": optional_engines(engine, config),
+            "optional_engines": optional_engines(engine),
         }
 
     @app.post("/api/v1/session")
@@ -257,27 +249,22 @@ def create_app(settings: Settings | None = None, ocr: OCRService | None = None) 
     def scan_status(scan_id: str, owner: Owner):
         with store.lock:
             job = owned_job(scan_id, owner)
-            return {
+            reply = {
                 "scan_id": job.scan_id,
                 "status": job.status,
                 "stage": job.stage,
                 "result": job.result,
                 "error": job.error,
             }
-
-    @app.get("/api/v1/scans/{scan_id}/image")
-    def scan_image(
-        scan_id: str,
-        owner: Owner,
-        side: Literal["front", "back"] = "front",
-        variant: Literal["original", "corrected"] = "corrected",
-    ):
-        with store.lock:
-            job = owned_job(scan_id, owner)
-            image = job.images.get((side, variant))
-            if image is None:
-                raise HTTPException(404, "Image is not available.")
-            return Response(content=image, media_type="image/jpeg")
+            if job.status in {"completed", "failed"}:
+                # The final reply carries everything, so nothing about the
+                # document is kept once it has been delivered.
+                reply["previews"] = [
+                    Preview(side=side, variant=variant, jpeg_base64=base64.b64encode(data).decode("ascii"))
+                    for (side, variant), data in job.images.items()
+                ]
+                store.delete(scan_id, owner)
+            return reply
 
     @app.delete("/api/v1/scans/{scan_id}", status_code=204)
     def delete_scan(scan_id: str, owner: Owner):

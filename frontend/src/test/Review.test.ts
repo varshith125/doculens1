@@ -9,7 +9,9 @@ it("keeps the extracted value and evidence when the user edits a field", () => {
   expect(field.source).toBe("user");
   expect(field.confidence).toBeNull();
   expect(field.evidence).toEqual(result.fields.surname.evidence);
-  expect(reviewedResult(result, { surname: field }).fields.surname.value).toBe("EXAMPLE");
+  expect(reviewedResult(result, { surname: field }).fields.surname.value).toBe(
+    "EXAMPLE",
+  );
 });
 
 it("rejects impossible dates and ambiguous date edits", () => {

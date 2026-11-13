@@ -7,14 +7,25 @@ import {
   Focus,
   Globe2,
   Layers2,
+  LayoutDashboard,
   LockKeyhole,
   ScanLine,
   ScanText,
   ShieldCheck,
-  Sparkles,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Swap } from "@/components/Swap";
+import {
+  EASE,
+  pop,
+  rise,
+  stagger,
+  useEntrance,
+  useInView,
+  useReducedMotion,
+} from "@/lib/motion";
 import { CropEditor } from "@/components/CropEditor";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { Progress } from "@/components/Progress";
@@ -22,7 +33,6 @@ import { Results } from "@/components/Results";
 import { UploadArea } from "@/components/UploadArea";
 import { useObjectUrl } from "@/hooks/useObjectUrl";
 import { useScan } from "@/hooks/useScan";
-import { useMotion } from "@/hooks/useMotion";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import type {
   Corners,
@@ -41,7 +51,6 @@ const initialOptions = (): ScanOptions => ({
 });
 
 export default function App() {
-  const motionRoot = useMotion("page");
   const [files, setFiles] = useState<Uploads>({ front: null, back: null });
   const [options, setOptions] = useState<ScanOptions>(initialOptions);
   const [side, setSide] = useState<Side>("front");
@@ -55,24 +64,33 @@ export default function App() {
   } = useBackendHealth();
   const [helpOpen, setHelpOpen] = useState(false);
   const scanner = useScan();
-  const [highlight, setHighlight] = useState<{ scan: string; field: FieldValue } | null>(null);
+  const [highlight, setHighlight] = useState<{
+    scan: string;
+    field: FieldValue;
+  } | null>(null);
   const frontUrl = useObjectUrl(files.front);
   const backUrl = useObjectUrl(files.back);
   const original = side === "front" ? frontUrl : backUrl;
   const selectedPdf = files[side]?.type === "application/pdf";
-  const pdfPage = selectedPdf ? scanner.previews[side]?.original ?? null : null;
+  const pdfPage = selectedPdf
+    ? (scanner.previews[side]?.original ?? null)
+    : null;
   const pdfPageUrl = useObjectUrl(pdfPage);
   const cropImage = selectedPdf ? pdfPageUrl : original;
 
   const changeFile = (target: Side, file: File | null) => {
     scanner.reset();
     setHighlight(null);
-    setFiles((previous) => target === "front"
-      ? { front: file, back: null }
-      : { ...previous, back: file });
+    setFiles((previous) =>
+      target === "front"
+        ? { front: file, back: null }
+        : { ...previous, back: file },
+    );
     setOptions((previous) => ({
       ...previous,
-      ...(target === "front" ? { back: { rotation: 0 as Rotation, corners: null } } : {}),
+      ...(target === "front"
+        ? { back: { rotation: 0 as Rotation, corners: null } }
+        : {}),
       [target]: { rotation: 0, corners: null },
     }));
     setSide(file ? target : "front");
@@ -120,8 +138,25 @@ export default function App() {
     return () => window.removeEventListener("pagehide", discardDocument);
   }, []);
   const canScan = files.front && service?.ocr_ready && !scanner.busy;
+  const entrance = useEntrance();
+  const inView = useInView();
+  const reducedMotion = useReducedMotion();
+  useEffect(() => {
+    if (helpOpen) {
+      document.getElementById("how-it-works")?.scrollIntoView?.({
+        behavior: reducedMotion ? "instant" : "smooth",
+        block: "start",
+      });
+    }
+  }, [helpOpen, reducedMotion]);
+  const currentStep = scanner.result ? 2 : files.front ? 1 : 0;
+  const panelState = scanner.busy
+    ? "scanning"
+    : scanner.result
+      ? `result-${scanner.result.scan_id}`
+      : "empty";
   return (
-    <div className="app-shell" ref={motionRoot}>
+    <div className="app-shell">
       <a className="skip-link" href="#workspace">
         Skip to document workspace
       </a>
@@ -130,43 +165,63 @@ export default function App() {
           <span className="brand-symbol">
             <Focus size={25} strokeWidth={1.8} />
           </span>
-          Docu<span>Lens</span>
-          <span className="brand-beta">LOCAL EDITION</span>
+          <span className="brand-name">
+            DocuLens<small>DOCUMENT WORKSPACE</small>
+          </span>
         </a>
         <nav aria-label="Main navigation">
-          <a href="#workspace" className="active">
-            Workspace
+          <span className="nav-label">WORKSPACE</span>
+          <a href="#workspace" className="active" aria-current="page">
+            <LayoutDashboard size={18} /> Document scanner
           </a>
           <button
             aria-expanded={helpOpen}
             aria-controls="how-it-works"
             onClick={() => setHelpOpen((value) => !value)}
           >
-            How it works
+            <CircleHelp size={18} /> How it works
           </button>
         </nav>
-        <div className="privacy-chip">
-          <span />
-          Private by design
-          <LockKeyhole size={13} />
+        <div className="sidebar-note">
+          <LockKeyhole size={20} strokeWidth={1.5} />
+          <strong>Local. Private. In your control.</strong>
+          <p>
+            Your documents are processed on this computer. No external AI
+            services.
+          </p>
+          <span>
+            LOCAL EDITION <span aria-hidden="true">/</span> 01
+          </span>
         </div>
       </header>
+      <div className="workspace-topbar">
+        <div>
+          <span>Workspace</span>
+          <ChevronRight size={14} />
+          <strong>Document scanner</strong>
+        </div>
+        <span className="privacy-chip">
+          <LockKeyhole size={13} /> Local processing
+        </span>
+      </div>
       <main>
         <section className="hero">
-          <div className="hero-copy">
-            <span className="eyebrow hero-eyebrow">
-              <span /> A CLEARER WAY TO READ DOCUMENTS
-            </span>
-            <h1>
-              Every detail.
-              <br />
-              <em>In focus.</em>
-            </h1>
-            <p>
-              Turn passports and identity cards into clear, structured
-              information. One image. A closer look.
-            </p>
-            <div className="hero-features">
+          <motion.div
+            className="hero-copy"
+            variants={stagger(0.04)}
+            {...entrance}
+          >
+            <motion.span className="eyebrow hero-eyebrow" variants={rise}>
+              DOCUMENT INTELLIGENCE
+            </motion.span>
+            <motion.h1 variants={rise}>
+              A clear view of every document.
+            </motion.h1>
+            <motion.p variants={rise}>
+              Upload, extract and review passport or identity card details in
+              one focused workspace.
+            </motion.p>
+            <motion.div className="hero-features" variants={rise}>
               <span>
                 <ShieldCheck size={15} />
                 Local processing
@@ -177,77 +232,120 @@ export default function App() {
               </span>
               <span>
                 <Check size={15} />
-                Evidence, not guesses
+                Review with evidence
               </span>
-            </div>
-          </div>
-          <div className="hero-note">
-            <div className="note-symbol">
-              <ScanText size={30} strokeWidth={1.4} />
-            </div>
-            <span className="eyebrow">LESS TYPING. MORE CLARITY.</span>
-            <p>
-              Your document,
-              <br />
-              with the details
-              <br />
-              <strong>already in place.</strong>
-            </p>
-            <span className="note-footer">
-              Built for careful reading <ArrowRight size={15} />
-            </span>
-          </div>
+            </motion.div>
+          </motion.div>
         </section>
-        {helpOpen && (
-          <section
-            id="how-it-works"
-            className="help-panel"
-            aria-label="How DocuLens works"
-          >
-            <div>
-              <h2>A simple scan, with the evidence intact.</h2>
-              <p>
-                Upload one document image, and optionally its reverse. Review
-                the detected crop, readable fields and their original text.
-                Adjust the corners or rotation and scan again when needed.
-              </p>
-              <p>
-                Each scan starts fresh. Uploaded images and extracted text are
-                processed in memory, without a disk cache or scan history. The server
-                releases them after the result and previews reach this page.
-                The current document stays in page memory until you replace it,
-                clear it or leave. Undelivered results expire
-                {" "}{service?.retention_seconds ?? 60} seconds after processing.
-                Downloaded exports and clipboard contents remain under your control.
-              </p>
-              <p>
-                OCR can misread characters. A passing MRZ checksum checks
-                transcription, not identity or document authenticity. Document
-                layouts and languages vary; review every important value.
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Close help"
-              onClick={() => setHelpOpen(false)}
+        <ol className="workflow-steps" aria-label="Document workflow">
+          {[
+            { title: "Upload document", detail: "Add a clear image" },
+            { title: "Scan & extract", detail: "Read the document locally" },
+            {
+              title: "Review & export",
+              detail: "Check details against the original",
+            },
+          ].map((step, index) => (
+            <li
+              key={step.title}
+              className={
+                index === currentStep
+                  ? "is-current"
+                  : index < currentStep
+                    ? "is-complete"
+                    : ""
+              }
+              aria-current={index === currentStep ? "step" : undefined}
             >
-              <X size={18} />
-            </Button>
-          </section>
-        )}
-        <section
+              <span className="workflow-number">
+                {index < currentStep ? <Check size={16} /> : `0${index + 1}`}
+              </span>
+              <div>
+                <strong>{step.title}</strong>
+                <span>{step.detail}</span>
+              </div>
+              {index < 2 && (
+                <ChevronRight
+                  className="workflow-chevron"
+                  size={16}
+                  aria-hidden="true"
+                />
+              )}
+            </li>
+          ))}
+        </ol>
+        <AnimatePresence initial={false}>
+          {helpOpen && (
+            <motion.section
+              id="how-it-works"
+              className="help-panel"
+              aria-label="How DocuLens works"
+              initial={
+                reducedMotion ? false : { opacity: 0, y: -12, scale: 0.98 }
+              }
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={
+                reducedMotion ? undefined : { opacity: 0, y: -8, scale: 0.98 }
+              }
+              transition={{ duration: 0.3, ease: EASE }}
+            >
+              <div>
+                <h2>A simple scan, with the evidence intact.</h2>
+                <p>
+                  Upload one document image, and optionally its reverse. Review
+                  the detected crop, readable fields and their original text.
+                  Adjust the corners or rotation and scan again when needed.
+                </p>
+                <p>
+                  Each scan starts fresh. Uploaded images and extracted text are
+                  processed in memory, without a disk cache or scan history. The
+                  server releases them after the result and previews reach this
+                  page. The current document stays in page memory until you
+                  replace it, clear it or leave. Undelivered results expire{" "}
+                  {service?.retention_seconds ?? 60} seconds after processing.
+                  Downloaded exports and clipboard contents remain under your
+                  control.
+                </p>
+                <p>
+                  OCR can misread characters. A passing MRZ checksum checks
+                  transcription, not identity or document authenticity. Document
+                  layouts and languages vary; review every important value.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close help"
+                onClick={() => setHelpOpen(false)}
+              >
+                <X size={18} />
+              </Button>
+            </motion.section>
+          )}
+        </AnimatePresence>
+        <motion.section
           id="workspace"
           tabIndex={-1}
           className="workspace"
           aria-label="Document scanning workspace"
+          initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
         >
           <div className="workspace-heading">
             <div className="workspace-title">
-              <span className="workspace-number">01</span>
+              <span className="workspace-number">
+                <ScanLine size={20} />
+              </span>
               <div>
-                <h2>Your scanning workspace</h2>
-                <p>A little less paperwork starts here.</p>
+                <h2>Document workspace</h2>
+                <p>
+                  {scanner.result
+                    ? "Review each value against your document before exporting."
+                    : files.front
+                      ? "Check the image, adjust if needed, then start your scan."
+                      : "Start with the front of your document. Add the reverse if needed."}
+                </p>
               </div>
             </div>
             <div
@@ -354,14 +452,20 @@ export default function App() {
                     <DocumentViewer
                       original={pdfPageUrl ?? original}
                       result={scanner.result}
-                      correctedPreview={scanner.previews[side]?.corrected ?? null}
+                      correctedPreview={
+                        scanner.previews[side]?.corrected ?? null
+                      }
                       side={side}
                       options={options[side]}
                       busy={scanner.busy}
                       onRotate={rotate}
                       onCrop={() => setCropOpen(true)}
                       isPdf={selectedPdf && !pdfPageUrl}
-                      highlight={highlight?.scan === scanner.result?.scan_id ? highlight?.field : null}
+                      highlight={
+                        highlight?.scan === scanner.result?.scan_id
+                          ? highlight?.field
+                          : null
+                      }
                     />
                   )}
                   <details
@@ -467,56 +571,55 @@ export default function App() {
                   </div>
                 </div>
               )}
-              {scanner.busy ? (
-                <Progress stage={scanner.stage} />
-              ) : scanner.result ? (
-                <Results key={scanner.result.scan_id} result={scanner.result} onHighlight={(field) => {
-                  setHighlight(field ? { scan: scanner.result!.scan_id, field } : null);
-                  const location = field?.evidence.find((item) => item.bounding_box);
-                  if (location) setSide(location.side);
-                }} />
-              ) : (
-                <div className="results-empty">
-                  <div className="empty-orbit">
-                    <ScanText size={36} strokeWidth={1.25} />
-                    <span>
-                      <Sparkles size={13} />
+              <Swap id={panelState}>
+                {scanner.busy ? (
+                  <Progress stage={scanner.stage} />
+                ) : scanner.result ? (
+                  <Results
+                    key={scanner.result.scan_id}
+                    result={scanner.result}
+                    onHighlight={(field) => {
+                      setHighlight(
+                        field ? { scan: scanner.result!.scan_id, field } : null,
+                      );
+                      const location = field?.evidence.find(
+                        (item) => item.bounding_box,
+                      );
+                      if (location) setSide(location.side);
+                    }}
+                  />
+                ) : (
+                  <div className="results-empty">
+                    <div className="empty-orbit">
+                      <ScanText size={28} strokeWidth={1.5} />
+                    </div>
+                    <span className="eyebrow">READY WHEN YOU ARE</span>
+                    <h3>Your document details, organised.</h3>
+                    <p>
+                      Extracted fields and their source evidence will appear
+                      here after your scan.
+                    </p>
+                    <div className="field-preview" aria-hidden="true">
+                      <div>
+                        <span>Full name</span>
+                        <i />
+                      </div>
+                      <div>
+                        <span>Document number</span>
+                        <i />
+                      </div>
+                      <div>
+                        <span>Date of birth</span>
+                        <i />
+                      </div>
+                    </div>
+                    <span className="empty-note">
+                      <LockKeyhole size={12} />
+                      No document data is sent to external AI services.
                     </span>
                   </div>
-                  <span className="eyebrow">THE DETAILS WILL APPEAR HERE</span>
-                  <h3>
-                    A document goes in.
-                    <br />
-                    Clarity comes out.
-                  </h3>
-                  <p>
-                    We find the text, connect the fields,
-                    <br className="desktop-break" /> and show you where every
-                    value came from.
-                  </p>
-                  <div className="empty-steps">
-                    <div>
-                      <span>1</span>
-                      <p>Upload your document</p>
-                      <ChevronRight size={14} />
-                    </div>
-                    <div>
-                      <span>2</span>
-                      <p>Scan and check the crop</p>
-                      <ChevronRight size={14} />
-                    </div>
-                    <div>
-                      <span>3</span>
-                      <p>Review, copy or export</p>
-                      <Check size={14} />
-                    </div>
-                  </div>
-                  <span className="empty-note">
-                    <LockKeyhole size={12} />
-                    No document data is sent to external AI services.
-                  </span>
-                </div>
-              )}
+                )}
+              </Swap>
             </div>
           </div>
           <div className="workspace-footer">
@@ -528,27 +631,32 @@ export default function App() {
               Privacy & reading notes <ArrowRight size={13} />
             </button>
           </div>
-        </section>
-        <section className="features-strip" aria-label="Scanning capabilities">
-          <div>
+        </motion.section>
+        <motion.section
+          className="features-strip"
+          aria-label="Scanning capabilities"
+          variants={stagger(0.1)}
+          {...inView}
+        >
+          <motion.div variants={pop}>
             <span className="feature-icon">
               <Focus size={23} strokeWidth={1.5} />
             </span>
             <div>
-              <h3>A better perspective</h3>
+              <h3>Precise image preparation</h3>
               <p>Automatic alignment, with a human final look.</p>
             </div>
-          </div>
-          <div>
+          </motion.div>
+          <motion.div variants={pop}>
             <span className="feature-icon">
               <ScanText size={23} strokeWidth={1.5} />
             </span>
             <div>
-              <h3>Details with a source</h3>
+              <h3>Evidence for every review</h3>
               <p>Visible text, MRZ checks and clear uncertainty.</p>
             </div>
-          </div>
-          <div>
+          </motion.div>
+          <motion.div variants={pop}>
             <span className="feature-icon">
               <LockKeyhole size={23} strokeWidth={1.5} />
             </span>
@@ -556,16 +664,16 @@ export default function App() {
               <h3>Private from the start</h3>
               <p>Local OCR. Temporary storage. Your control.</p>
             </div>
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
       </main>
       <footer className="site-footer">
         <span className="footer-brand">
           <Focus size={16} />
           DocuLens
         </span>
-        <span>A little focus changes everything.</span>
-        <span>Thoughtfully local.</span>
+        <span>Document reading, with you in control.</span>
+        <span>Local document processing</span>
       </footer>
       {cropOpen && cropImage && (
         <CropEditor

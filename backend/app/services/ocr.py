@@ -761,7 +761,7 @@ class OCRService:
                         )
                 # Calendar syntax alone cannot justify selecting a different year.
                 # Agreement between retries remains uncertain, not independent proof.
-            # Tier 3: Tesseract OCR fallback when primary and recovery models remain uncertain or invalid
+            # Last resort: Tesseract, when both OCR models are still uncertain.
             if tesseract and tesseract.is_available():
                 is_date = (
                     id(line) in invalid_dates

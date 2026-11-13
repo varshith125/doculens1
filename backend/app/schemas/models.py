@@ -101,8 +101,6 @@ class ImageResult(BaseModel):
     rotation: int
     quality: dict[str, float]
     warnings: list[str]
-    original_url: str = ""
-    corrected_url: str = ""
 
 
 class ScanResult(BaseModel):
@@ -136,6 +134,14 @@ class ScanOptions(BaseModel):
     date_order: Literal["auto", "dmy", "mdy"] = "dmy"
 
 
+class Preview(BaseModel):
+    """A preview image delivered once, inside the final scan reply."""
+
+    side: Side
+    variant: Literal["original", "corrected"]
+    jpeg_base64: str
+
+
 class JobResponse(BaseModel):
     scan_id: str
     status: Literal["queued", "processing", "completed", "failed"]
@@ -151,6 +157,7 @@ class JobResponse(BaseModel):
     ]
     result: ScanResult | None = None
     error: str | None = None
+    previews: list[Preview] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):

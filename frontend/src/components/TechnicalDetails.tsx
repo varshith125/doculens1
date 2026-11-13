@@ -20,29 +20,41 @@ export function TechnicalDetails({
       <p>
         {result.mrz.raw_lines.length > 0
           ? `${result.mrz.format || "MRZ format unavailable"} · ${
-              result.mrz.checksum_valid === true ? "Checks passed"
-                : result.mrz.checksum_valid === false ? "Review needed"
+              result.mrz.checksum_valid === true
+                ? "Checks passed"
+                : result.mrz.checksum_valid === false
+                  ? "Review needed"
                   : "Validation unavailable"
             }`
           : "No MRZ was read. MRZ validation was not performed; printed fields are evaluated separately."}
       </p>
       <p>
         Checks validate transcription, not identity or document authenticity.
-        Confidence measures the OCR reading, not verified accuracy. Established full dates
-        display and copy as DD-MMMM-YYYY. JSON keeps normalized dates as YYYY-MM-DD and separates observed_value,
-        display_value and normalized_value; value retains the existing machine-value
-        role. A normalized date is available only when its interpretation is known.
-        Dates without a known full year or date order retain their source reading and
-        an uncertainty state. For MRZ birth and expiry dates, years 00-26 use 2000-2026
-        and years 27-99 use 1927-1999 unless a printed full year was established.
-        Printed issue dates with two-digit years use the same century rule.
-        Printed four-digit years stay unchanged; ambiguous day/month order still requires review.
+        Confidence measures the OCR reading, not verified accuracy. Established
+        full dates display and copy as DD-MMMM-YYYY. JSON keeps normalized dates
+        as YYYY-MM-DD and separates observed_value, display_value and
+        normalized_value; value retains the existing machine-value role. A
+        normalized date is available only when its interpretation is known.
+        Dates without a known full year or date order retain their source
+        reading and an uncertainty state. For MRZ birth and expiry dates, years
+        00-26 use 2000-2026 and years 27-99 use 1927-1999 unless a printed full
+        year was established. Printed issue dates with two-digit years use the
+        same century rule. Printed four-digit years stay unchanged; ambiguous
+        day/month order still requires review.
       </p>
-      {!!result.mrz.corrections?.length && <div>
-        <h4>Interpreted MRZ — OCR substitutions require review</h4>
-        <pre className="mrz-text">{result.mrz.interpreted_lines?.join("\n")}</pre>
-        <ul>{result.mrz.corrections.map((correction) => <li key={correction}>{correction}</li>)}</ul>
-      </div>}
+      {!!result.mrz.corrections?.length && (
+        <div>
+          <h4>Interpreted MRZ — OCR substitutions require review</h4>
+          <pre className="mrz-text">
+            {result.mrz.interpreted_lines?.join("\n")}
+          </pre>
+          <ul>
+            {result.mrz.corrections.map((correction) => (
+              <li key={correction}>{correction}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <ul>
         {[...new Set([...result.warnings, ...result.mrz.warnings])].map(
           (warning, i) => (
@@ -64,11 +76,13 @@ export function TechnicalDetails({
           key={`${field.field_name}-${index}`}
         >
           <h4>
-            {fieldHeading(field, result.document_type)} ·{" "}
-            {label(field.status)}
+            {fieldHeading(field, result.document_type)} · {label(field.status)}
           </h4>
           {field.value_kind === "assembled" && field.value && (
-            <p>Derived name (not a printed field): <code dir="auto">{field.value}</code></p>
+            <p>
+              Derived name (not a printed field):{" "}
+              <code dir="auto">{field.value}</code>
+            </p>
           )}
           {field.normalized_value && (
             <p>
@@ -93,7 +107,12 @@ export function TechnicalDetails({
                   <span>Associated heading: {item.associated_label}</span>
                 )}
                 {item.label_fragments && item.label_fragments.length > 1 && (
-                  <span>Caption fragments: {item.label_fragments.map((part) => part.raw_text).join(" · ")}</span>
+                  <span>
+                    Caption fragments:{" "}
+                    {item.label_fragments
+                      .map((part) => part.raw_text)
+                      .join(" · ")}
+                  </span>
                 )}
                 {item.confidence !== null && (
                   <span>

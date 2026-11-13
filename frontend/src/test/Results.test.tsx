@@ -68,9 +68,9 @@ it("keeps document code in the normal fields and all diagnostics below MRZ", () 
       }}
     />,
   );
-  expect(screen.getByText("Document Code")).toBeVisible();
+  expect(screen.getByText("Document Type Code")).toBeVisible();
   expect(
-    screen.getByRole("button", { name: "Copy Document Code" }),
+    screen.getByRole("button", { name: "Copy Document Type Code" }),
   ).toBeVisible();
   expect(
     screen.queryByText("Additional printed fields"),
@@ -180,7 +180,9 @@ it("shows a preferred name first and keeps evidence collapsed", async () => {
   );
   expect(screen.getByText("ALEX MORGAN EXAMPLE")).toBeVisible();
   expect(screen.queryByText("Uncertain")).not.toBeInTheDocument();
-  expect(screen.queryByText("Uncertain — review required")).not.toBeInTheDocument();
+  expect(
+    screen.queryByText("Uncertain — review required"),
+  ).not.toBeInTheDocument();
   expect(screen.queryByText("100% OCR")).not.toBeInTheDocument();
   expect(screen.getByText("100% OCR confidence")).not.toBeVisible();
   const reason = screen.getByText("Other readings differ.");
@@ -209,7 +211,7 @@ it("displays and copies ISO dates in day/month/year order", async () => {
     />,
   );
   expect(screen.getByText("22/07/1982")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Copy Date Of Birth" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy Date of Birth" }));
   await waitFor(() =>
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("22/07/1982"),
   );
@@ -261,7 +263,7 @@ it("formats and copies an Emirates ID with printed grouping", async () => {
   );
   expect(screen.getByText("784-2000-1234567-1")).toBeVisible();
   fireEvent.click(
-    screen.getByRole("button", { name: "Copy Emirates Id Number" }),
+    screen.getByRole("button", { name: "Copy Emirates ID Number" }),
   );
   await waitFor(() =>
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
@@ -303,7 +305,7 @@ it("does not invent fields for unmatched text and keeps the raw transcript optio
     "Full Name",
     "Given Names",
     "Surname",
-    "Date Of Birth",
+    "Date of Birth",
     "Passport Number",
     "Date Of Issue",
     "Date Of Expiry",
@@ -442,7 +444,8 @@ it("preserves printed first, middle and last name headings in display and copy",
   fireEvent.click(screen.getByRole("button", { name: "Copy fields" }));
   await waitFor(() =>
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      "First Name: ALEX\nMiddle Name: MORGAN\nLast Name: EXAMPLE",
+      // Agreed sequence: surname first, then given and middle names.
+      "Last Name: EXAMPLE\nFirst Name: ALEX\nMiddle Name: MORGAN",
     ),
   );
 });
@@ -467,14 +470,14 @@ it("shows unreadable dates under their headings without presenting raw garbage a
     />,
   );
   const row = screen
-    .getByText("Date Of Birth")
+    .getByText("Date of Birth")
     .closest(".field-row") as HTMLElement;
   expect(within(row).getAllByText("Unreadable")[0]).toBeVisible();
   expect(screen.getByText("1961110112").closest("details")).not.toHaveAttribute(
     "open",
   );
   expect(
-    screen.queryByRole("button", { name: "Copy Date Of Birth" }),
+    screen.queryByRole("button", { name: "Copy Date of Birth" }),
   ).not.toBeInTheDocument();
 });
 

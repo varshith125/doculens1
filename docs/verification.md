@@ -2,7 +2,7 @@
 
 ## MRZ, comparison and startup connectivity refinement — 27 October 2026
 
-This is the latest result and supersedes earlier UI descriptions below. See [the change report and manual acceptance plan](enhancement-2026-10-27.md) for changed files, precise behavior, commands and limitations.
+This is the latest result and supersedes earlier UI descriptions below. See [the change report and manual acceptance plan](reports/enhancement-2026-10-27.md) for changed files, precise behavior, commands and limitations.
 
 | Executed check | Final result |
 | --- | --- |
@@ -36,7 +36,7 @@ This section describes the current implementation and supersedes earlier results
 - The source package excludes private manifests, original images, model files, caches and credentials. Real-sample expected values remain local in an ignored manifest, not public test fixtures.
 - **Application servers were not started.** Browser use was unavailable in this environment; visual mobile/tablet/desktop and screen-reader acceptance remain manual checks. Automated tests use jsdom. Severe blur and residual MRZ disagreements still require review.
 
-See [implementation-review.md](implementation-review.md) for the requirement-by-requirement assessment and sample-test instructions.
+See [implementation-review.md](reports/implementation-review.md) for the requirement-by-requirement assessment and sample-test instructions.
 
 ## OCR text as main results — 27 October 2026
 
@@ -59,7 +59,7 @@ See [implementation-review.md](implementation-review.md) for the requirement-by-
 - Backend: 132 tests passed in the complete suite, followed by 4 newly added passing regression cases and one additional format/conflict regression (137 total verified cases). The additional checks exercise a generated wrapped-name image with the real OCR model, DMY/MDY/auto dates through the in-process API, and retention of conflicts when a preferred number fails format checks. The final extraction suite passed all 64 cases.
 - Frontend: 11 tests passed, including value-first display with collapsed evidence and day/month/year display/copy. Production build, TypeScript and ESLint passed. The workflow suite passed again after asserting that the UI sends `date_order: dmy`.
 - Python Ruff lint and formatting passed.
-- `scripts/evaluate_accuracy.py` compared six expected fields on the same fictional clear image, Gaussian blur at sigma 0.8 and 1.2, and a 576×360 version. Each case improved from 5/6 to 6/6 exact field values: the missed dotted DOB caption/date was recovered. Raw before/after observations are in `accuracy-before.json` and `accuracy-after.json`. This small fixture is a regression check, not a general OCR accuracy estimate or proof that severely blurred characters can be recovered.
+- `scripts/evaluate_accuracy.py` compared six expected fields on the same fictional clear image, Gaussian blur at sigma 0.8 and 1.2, and a 576×360 version. Each case improved from 5/6 to 6/6 exact field values: the missed dotted DOB caption/date was recovered. Raw before/after observations are in `reports/accuracy-before.json` and `reports/accuracy-after.json`. This small fixture is a regression check, not a general OCR accuracy estimate or proof that severely blurred characters can be recovered.
 - Wrapped names now combine adjacent rows; genuine differences show the highest-confidence reading with alternatives and the conflict status retained. Enhanced crop retries preserve their original observations. No actual user passport/ID image was available for reproducing the reported name layout.
 - Application servers were not started during this update, as requested. The browser/device verification limitation below still applies. The performance figures below are historical and predate these changes.
 

@@ -5,6 +5,13 @@ import { cn } from "@/lib/utils";
 import { useMotion } from "@/hooks/useMotion";
 import type { Side } from "@/types/scan";
 
+const ACCEPTED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
+
 interface Props {
   side: Side;
   file: File | null;
@@ -34,8 +41,10 @@ export function UploadArea({
       return;
     }
     const next = files[0];
-    if (!["image/jpeg", "image/png", "image/webp"].includes(next.type)) {
-      setError("Use a JPG, PNG or WebP image.");
+    // Some systems report no type for a PDF, so its extension also counts.
+    const pdf = next.type === "application/pdf" || /\.pdf$/i.test(next.name);
+    if (!ACCEPTED_TYPES.includes(next.type) && !pdf) {
+      setError("Use a JPG, PNG or WebP image, or a single-page PDF.");
       return;
     }
     if (next.size > maxMb * 1024 * 1024) {
@@ -54,10 +63,10 @@ export function UploadArea({
         ref={input}
         type="file"
         className="sr-only"
-        accept="image/jpeg,image/png,image/webp"
+        accept={[...ACCEPTED_TYPES, ".pdf"].join(",")}
         aria-label={`Upload document ${side}`}
         aria-describedby={error ? `upload-error-${side}` : undefined}
-        aria-invalid={Boolean(error) ? "true" : "false"}
+        aria-invalid={error ? "true" : "false"}
         disabled={disabled}
         onChange={(event) => {
           choose(event.target.files);
@@ -133,42 +142,19 @@ export function UploadArea({
           </>
         ) : (
           <>
-            <div className="document-art" aria-hidden="true">
-              <div className="art-card back-card" />
-              <div className="art-card front-card">
-                <div className="art-card-top">
-                  <span className="art-world">◎</span>
-                  <span className="art-lines">
-                    <i />
-                    <i />
-                  </span>
-                </div>
-                <div className="art-person">
-                  <span />
-                  <div>
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                </div>
-                <div className="art-mrz">
-                  <i />
-                  <i />
-                </div>
-              </div>
-              <span className="art-upload">
-                <Upload size={23} strokeWidth={1.6} />
-              </span>
-              <span className="art-spark spark-one" />
-              <span className="art-spark spark-two" />
+            <div className="upload-symbol" aria-hidden="true">
+              <Upload size={28} strokeWidth={1.5} />
             </div>
             <h3>Drop your document here</h3>
-            <p>A passport or identity card. We’ll take a closer look.</p>
+            <p>
+              Drag and drop a passport or identity card image, or choose a file
+              below.
+            </p>
             <Button disabled={disabled} onClick={() => input.current?.click()}>
               Browse files <ArrowUpRight size={17} />
             </Button>
             <span className="format-hint">
-              JPG, PNG or WebP <span>·</span> Up to {maxMb} MB
+              JPG, PNG, WebP or PDF <span>·</span> Up to {maxMb} MB
             </span>
           </>
         )}

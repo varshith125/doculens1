@@ -18,7 +18,29 @@ DocuLens is an assistance tool. It does not verify a person's identity, authenti
 - Run OCR and image processing locally with OpenCV and ONNX Runtime. No document image or text is sent to a hosted service.
 - An optional local Tesseract backup engine is discovered at startup; `GET /api/v1/health` reports whether it is usable on this machine.
 
-## Requirements
+## Run with Docker
+
+The Docker image contains everything: the website, the API, the OCR and caption models, and
+Tesseract. Only [Docker](https://www.docker.com/products/docker-desktop/) is needed.
+
+```bash
+docker compose up -d          # build (first time) and start
+# open http://localhost:8000
+docker compose down           # stop
+```
+
+The image is about 3 GB and the app needs about 2–3 GB of memory. The first start takes a minute
+while the models load. Uploads are processed in memory only; the container's file system is
+read-only.
+
+To make the app reachable at a public address, set `DOCULENS_ALLOWED_HOSTS`,
+`DOCULENS_ALLOWED_ORIGINS` and `DOCULENS_COOKIE_SECURE` in `docker-compose.yml`, and serve it
+over HTTPS (for example behind a reverse proxy).
+
+> The model files are not stored in Git because of their size. To build the image yourself, place
+> them in `models/` as described in [models/README.md](models/README.md), or use a published image.
+
+## Requirements for running without Docker
 
 - Windows with PowerShell
 - Python 3.12 (Python 3.11–3.13 is allowed by the backend package)
@@ -71,6 +93,11 @@ Open <http://127.0.0.1:5173>. Vite forwards API requests to the backend on port 
 
 ## Tests and checks
 
+Full results, in plain language, are in [testing-reports](testing-reports/README.md):
+752 unit tests, 23 functional checks, 99.7 % accuracy on generated passports in eight photo
+conditions, and 80 % on hand-checked real-world samples. Each report is a Jupyter
+notebook that re-runs its tests.
+
 Run backend checks from `backend/`:
 
 ```powershell
@@ -105,7 +132,7 @@ Some OCR integration checks are opt-in and require local OCR models. See [verifi
 - [Field mapping](docs/passport-field-mapping.md)
 - [Multilingual captions and visual value association](docs/multilingual-visual-extraction.md)
 - [Verification notes](docs/verification.md)
-- [Implementation review](docs/implementation-review.md)
+- [Implementation review](docs/reports/implementation-review.md)
 
 ## Technology
 

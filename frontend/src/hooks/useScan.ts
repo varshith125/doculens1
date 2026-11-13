@@ -1,8 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "@/services/api";
-import type { ScanOptions, ScanResult, Side, Stage, Uploads } from "@/types/scan";
+import type {
+  ScanJob,
+  ScanOptions,
+  ScanResult,
+  Side,
+  Stage,
+  Uploads,
+} from "@/types/scan";
 
 type Previews = Partial<Record<Side, { original: Blob; corrected: Blob }>>;
+
+function isPdf(file: File): boolean {
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+}
+
+/** Pair each side's corrected page with its original from the final reply. */
+function readPreviews(job: ScanJob, files: Uploads): Previews {
+  const previews: Previews = {};
+  for (const { side } of job.result?.images ?? []) {
+    const sent = (variant: "original" | "corrected") => {
+      const preview = job.previews?.find(
+        (item) => item.side === side && item.variant === variant,
+      );
+      return preview ? api.previewBlob(preview) : null;
+    };
+    const uploaded = files[side];
+    // An uploaded photo is already in the browser; a PDF page comes back rendered.
+    const original = uploaded && !isPdf(uploaded) ? uploaded : sent("original");
+    const corrected = sent("corrected");
+    if (original && corrected) previews[side] = { original, corrected };
+  }
+  return previews;
+}
 
 interface ScanState {
   busy: boolean;
@@ -76,6 +106,10 @@ export function useScan() {
         while (!active.signal.aborted && run === generation.current) {
           const job = await api.getScan(started.scan_id, active.signal);
           if (run !== generation.current) return;
+          if (job.status === "completed" || job.status === "failed") {
+            // The server deleted the scan when it sent this final reply.
+            currentId.current = null;
+          }
           if (job.status === "failed")
             throw new Error(
               job.error ||
@@ -83,38 +117,26 @@ export function useScan() {
             );
           if (job.status === "completed" && job.result) {
             clearTimeout(timeout);
+            const previews = readPreviews(job, files);
+            const missing = job.result.images.some(
+              ({ side }) => !previews[side],
+            );
             setState({
               busy: false,
               stage: "completed",
               result: job.result,
-              error: null,
-              previews: {},
+              error: missing
+                ? "Extracted results are available, but a document preview could not be loaded."
+                : null,
+              previews,
             });
-            const previews: Previews = {};
-            const previewResults = await Promise.allSettled(job.result.images.map(async ({ side }) => {
-              const uploaded = files[side];
-              const [original, corrected] = await Promise.all([
-                // Raster uploads already have a local original preview. PDFs
-                // still need the backend's rendered page for viewing/cropping.
-                uploaded && uploaded.type !== "application/pdf" && !/\.pdf$/i.test(uploaded.name)
-                  ? Promise.resolve(uploaded)
-                  : api.imageBlob(started.scan_id, side, "original", active.signal),
-                api.imageBlob(started.scan_id, side, "corrected", active.signal),
-              ]);
-              if (run !== generation.current) return;
-              previews[side] = { original, corrected };
-              setState((previous) => ({ ...previous, previews: { ...previews } }));
-            }));
-            if (run !== generation.current) return;
-            if (previewResults.some((preview) => preview.status === "rejected")) {
-              setState((previous) => ({ ...previous,
-                error: "Extracted results are available, but a document preview could not be loaded.",
-              }));
-            }
             return;
           }
-          setState((previous) => previous.stage === job.stage
-            ? previous : { ...previous, stage: job.stage });
+          setState((previous) =>
+            previous.stage === job.stage
+              ? previous
+              : { ...previous, stage: job.stage },
+          );
           await api.delay(250, active.signal);
         }
       } catch (error) {

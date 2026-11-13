@@ -99,9 +99,18 @@ def expand_short_year(year: int, *, future: bool = False, today: date | None = N
 
 def normalize_date(
     value: str, date_order: DateOrder = "auto", *, expand_issue_year: bool = False,
+    short_year: Literal["past", "nearest"] | None = None,
 ) -> tuple[str, str | None]:
-    """Parse printed dates; two-digit issue years require explicit opt-in."""
+    """Parse printed dates; two-digit years require explicit opt-in.
+
+    ``short_year`` accepts a two-digit year: "past" takes the latest century
+    that is not in the future (birth, issue), "nearest" the one closest to
+    today (expiry). ``expand_issue_year`` implies "past".
+    """
     from app.patterns.common import fold_text
+
+    if expand_issue_year and short_year is None:
+        short_year = "past"
 
     text = "".join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in value)
     # Parse a working copy only; callers retain the printed spelling separately.
@@ -138,7 +147,7 @@ def normalize_date(
             return value, "Date order is ambiguous without separators; the printed value is preserved."
         return value, "The printed value is not a valid calendar date."
     iso = re.fullmatch(r"(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})", text)
-    year_pattern = r"(\d{4}|\d{2})" if expand_issue_year else r"(\d{4})"
+    year_pattern = r"(\d{4}|\d{2})" if short_year else r"(\d{4})"
     numeric = re.fullmatch(r"(\d{1,2})[-/. ](\d{1,2})[-/. ]" + year_pattern, text)
     named = re.fullmatch(r"(\d{1,2})[-/. ]?([A-Z]+)(?:/([A-Z]+))?[-/. ]?" + year_pattern, text)
     month_first = re.fullmatch(r"([A-Z]+)[-/. ]?(\d{1,2})[-/. ]?" + year_pattern, text)
@@ -172,8 +181,8 @@ def normalize_date(
             return recovered
         return value, "Date format or century is unclear; the printed value is preserved."
     year_token = numeric[3] if numeric else named[4] if named else month_first[3] if month_first else None
-    if expand_issue_year and year_token is not None and len(year_token) == 2:
-        parts = (expand_short_year(parts[0]), parts[1], parts[2])
+    if short_year and year_token is not None and len(year_token) == 2:
+        parts = (expand_short_year(parts[0], future=short_year == "nearest"), parts[1], parts[2])
     try:
         return date(*parts).isoformat(), None
     except ValueError:
@@ -276,5 +285,7 @@ def display_full_date(value: str) -> str | None:
 
 
 def matches_mrz_date(printed: str, mrz: str) -> bool:
-    normalized, reason = normalize_date(printed)
+    # Only YYMMDD is compared, so the century given to a two-digit printed
+    # year cannot change the outcome.
+    normalized, reason = normalize_date(printed, short_year="past")
     return reason is None and normalized.replace("-", "")[2:] == mrz

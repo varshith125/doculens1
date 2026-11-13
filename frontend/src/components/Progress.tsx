@@ -43,7 +43,7 @@ export function Progress({ stage }: { stage: Stage | null }) {
         <ScanLine size={32} strokeWidth={1.5} />
         <span aria-hidden="true" />
       </div>
-      <span className="eyebrow">A LITTLE FOCUS, A LOT OF CLARITY</span>
+      <span className="eyebrow">PROCESSING ON YOUR COMPUTER</span>
       <h3>
         {stage === "queued" ? "Your scan is in the queue" : steps[index].title}
       </h3>

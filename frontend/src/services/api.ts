@@ -1,4 +1,10 @@
-import type { Health, ScanJob, ScanOptions, Side, Uploads } from "@/types/scan";
+import type {
+  Health,
+  Preview,
+  ScanJob,
+  ScanOptions,
+  Uploads,
+} from "@/types/scan";
 
 const base = "/api/v1";
 
@@ -82,20 +88,11 @@ export async function deleteScan(id: string): Promise<void> {
   );
 }
 
-export async function imageBlob(
-  id: string,
-  side: Side,
-  variant: "corrected" | "original",
-  signal: AbortSignal,
-): Promise<Blob> {
-  return (
-    await checked(
-      await fetch(
-        `${base}/scans/${encodeURIComponent(id)}/image?side=${side}&variant=${variant}`,
-        { signal, credentials: "same-origin", cache: "no-store" },
-      ),
-    )
-  ).blob();
+export function previewBlob(preview: Preview): Blob {
+  const bytes = Uint8Array.from(atob(preview.jpeg_base64), (char) =>
+    char.charCodeAt(0),
+  );
+  return new Blob([bytes], { type: "image/jpeg" });
 }
 
 export function isAbort(error: unknown): boolean {

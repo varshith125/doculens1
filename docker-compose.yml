@@ -1,0 +1,20 @@
+# Run DocuLens with one command:   docker compose up -d
+# Then open http://localhost:8000.  Stop with:   docker compose down
+services:
+  doculens:
+    build: .
+    image: doculens:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # For a public address, add it here, for example:
+      # DOCULENS_ALLOWED_HOSTS: '["localhost","127.0.0.1","scan.example.com"]'
+      # DOCULENS_ALLOWED_ORIGINS: '["https://scan.example.com"]'
+      # DOCULENS_COOKIE_SECURE: "true"
+      DOCULENS_RETENTION_SECONDS: "60"
+    restart: unless-stopped
+    # The OCR and caption models need about 2–3 GB of memory.
+    mem_limit: 4g
+    read_only: true
+    tmpfs:
+      - /tmp

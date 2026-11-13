@@ -1,3 +1,4 @@
+import base64
 import io
 import tempfile
 import threading
@@ -75,7 +76,7 @@ def wait_result(client, scan_id):
     pytest.fail("Scan did not complete")
 
 
-def test_upload_result_images_and_delete(client):
+def test_result_and_preview_are_delivered_once_then_deleted(client):
     response = start(client)
     assert response.status_code == 202
     scan_id = response.json()["scan_id"]
@@ -83,12 +84,18 @@ def test_upload_result_images_and_delete(client):
     assert result["status"] == "completed", result
     assert result["result"]["fields"]["surname"]["value"] == "SPECIMEN"
     assert result["result"]["ocr_lines"][0]["text"] == "Surname: SPECIMEN"
-    image = client.get(f"/api/v1/scans/{scan_id}/image")
-    assert image.status_code == 200
-    assert image.headers["cache-control"] == "no-store"
-    assert image.content.startswith(b"\xff\xd8")
-    assert client.delete(f"/api/v1/scans/{scan_id}").status_code == 204
-    assert client.get(f"/api/v1/scans/{scan_id}/image").status_code == 404
+    # An uploaded photo is already in the browser; only the corrected page returns.
+    assert [(p["side"], p["variant"]) for p in result["previews"]] == [("front", "corrected")]
+    assert base64.b64decode(result["previews"][0]["jpeg_base64"]).startswith(b"\xff\xd8")
+    assert not client.app.state.store._jobs
+    assert client.get(f"/api/v1/scans/{scan_id}").status_code == 404
+    assert client.delete(f"/api/v1/scans/{scan_id}").status_code == 404
+
+
+def test_failed_scan_is_deleted_once_its_error_is_delivered(client):
+    body = wait_result(client, start(client, b"\xff\xd8\xffbroken").json()["scan_id"])
+    assert body["status"] == "failed"
+    assert not client.app.state.store._jobs
 
 
 def test_front_back_upload(client):
@@ -146,7 +153,6 @@ def test_requires_session_and_restricts_ownership(client):
     assert start(client).status_code == 401
     client.post("/api/v1/session")
     assert client.get(f"/api/v1/scans/{scan_id}").status_code == 404
-    assert client.get(f"/api/v1/scans/{scan_id}/image").status_code == 404
     assert client.delete(f"/api/v1/scans/{scan_id}").status_code == 404
 
 
@@ -208,12 +214,16 @@ def test_cancellation_cannot_restore_results(client, engine):
     assert client.get(f"/api/v1/scans/{scan_id}").status_code == 404
 
 
-def test_expiration_purges_images(client):
+def test_undelivered_result_expires_with_its_images(client):
     scan_id = start(client).json()["scan_id"]
-    wait_result(client, scan_id)
     store = client.app.state.store
+    job = next(iter(store._jobs.values()))
+    for _ in range(200):  # Wait without fetching, as if the browser had closed.
+        if job.status == "completed":
+            break
+        time.sleep(0.01)
+    assert job.images
     with store.lock:
-        job = next(iter(store._jobs.values()))
         job.created -= 1000
     assert client.get(f"/api/v1/scans/{scan_id}").status_code == 404
     assert not job.images
@@ -254,3 +264,15 @@ def test_upload_above_default_spool_threshold_never_writes_to_disk(monkeypatch, 
         submitted = start(memory_client, png() + b"\0" * (1024**2 + 100))
         assert submitted.status_code == 202
         assert wait_result(memory_client, submitted.json()["scan_id"])["status"] == "completed"
+
+
+def test_pdf_upload_returns_its_rendered_page_once(client):
+    page = io.BytesIO()
+    Image.new("RGB", (800, 500), "white").save(page, "PDF")
+    response = client.post("/api/v1/scans", files={"front": ("doc.pdf", page.getvalue(), "application/pdf")})
+    assert response.status_code == 202
+    body = wait_result(client, response.json()["scan_id"])
+    assert body["status"] == "completed", body
+    # The browser cannot draw a PDF page, so the rendered original comes back too.
+    assert sorted(p["variant"] for p in body["previews"]) == ["corrected", "original"]
+    assert not client.app.state.store._jobs

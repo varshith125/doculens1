@@ -20,7 +20,6 @@ vi.mock("@/services/api", async () => {
     startScan: vi.fn(),
     getScan: vi.fn(),
     deleteScan: vi.fn(),
-    imageBlob: vi.fn(),
   };
 });
 
@@ -40,11 +39,9 @@ beforeEach(() => {
     stage: "completed",
     result,
     error: null,
+    previews: [],
   });
   vi.mocked(api.deleteScan).mockResolvedValue(undefined);
-  vi.mocked(api.imageBlob).mockResolvedValue(
-    new Blob(["image"], { type: "image/jpeg" }),
-  );
 });
 
 async function upload() {
@@ -76,11 +73,13 @@ describe("Document workflow", () => {
     const input = screen.getByLabelText("Upload document front");
     fireEvent.change(input, {
       target: {
-        files: [new File(["x"], "bad.pdf", { type: "application/pdf" })],
+        files: [new File(["x"], "bad.gif", { type: "image/gif" })],
       },
     });
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(input).toHaveAccessibleDescription("Use a JPG, PNG or WebP image.");
+    expect(input).toHaveAccessibleDescription(
+      "Use a JPG, PNG or WebP image, or a single-page PDF.",
+    );
   });
   it("previews an upload and displays actual API fields after scanning", async () => {
     render(<App />);
@@ -143,11 +142,30 @@ describe("Document workflow", () => {
     await screen.findByText("Local engine ready");
     fireEvent.change(screen.getByLabelText("Upload document front"), {
       target: {
-        files: [new File(["x"], "doc.pdf", { type: "application/pdf" })],
+        files: [new File(["x"], "notes.txt", { type: "text/plain" })],
       },
     });
-    expect(screen.getByRole("alert")).toHaveTextContent("JPG, PNG or WebP");
+    expect(screen.getByRole("alert")).toHaveTextContent("single-page PDF");
     expect(api.startScan).not.toHaveBeenCalled();
+  });
+  it("accepts a PDF and sends it for scanning", async () => {
+    render(<App />);
+    await screen.findByText("Local engine ready");
+    const pdf = new File(["%PDF-1.7"], "passport.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText("Upload document front"), {
+      target: { files: [pdf] },
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText(/PDF selected/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Scan document" }));
+    expect(await screen.findByText("SPECIMEN")).toBeInTheDocument();
+    expect(api.startScan).toHaveBeenCalledWith(
+      expect.objectContaining({ front: pdf }),
+      expect.anything(),
+      expect.any(AbortSignal),
+    );
   });
   it("reports scan failure and allows another attempt", async () => {
     vi.mocked(api.getScan).mockResolvedValue({
@@ -192,7 +210,43 @@ describe("Document workflow", () => {
     expect(screen.queryByText("SPECIMEN")).not.toBeInTheDocument();
     expect(api.deleteScan).toHaveBeenCalledWith(result.scan_id);
   });
-  it("clears a completed scan and releases its server data", async () => {
+  it("shows the corrected page sent with the final reply", async () => {
+    vi.mocked(api.getScan).mockResolvedValue({
+      scan_id: result.scan_id,
+      status: "completed",
+      stage: "completed",
+      result: {
+        ...result,
+        images: [
+          {
+            side: "front",
+            width: 100,
+            height: 70,
+            corners: [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [0, 1],
+            ],
+            crop_applied: false,
+            rotation: 0,
+            quality: {},
+            warnings: [],
+          },
+        ],
+      },
+      error: null,
+      previews: [
+        { side: "front", variant: "corrected", jpeg_base64: btoa("jpeg") },
+      ],
+    });
+    render(<App />);
+    await upload();
+    fireEvent.click(screen.getByRole("button", { name: "Scan document" }));
+    expect(await screen.findByAltText("Corrected document")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("needs no server cleanup once a scan is delivered", async () => {
     render(<App />);
     await upload();
     fireEvent.click(screen.getByRole("button", { name: "Scan document" }));
@@ -202,7 +256,8 @@ describe("Document workflow", () => {
     expect(
       screen.getByRole("button", { name: /Browse files/i }),
     ).toBeInTheDocument();
-    expect(api.deleteScan).toHaveBeenCalledWith(result.scan_id);
+    // The server deleted the scan itself when it delivered the result.
+    expect(api.deleteScan).not.toHaveBeenCalled();
   });
 
   it("stops a timed-out scan and offers an actionable message", async () => {

@@ -1,20 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import {
-  Crop,
-  Image,
-  LoaderCircle,
-  RotateCw,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { Crop, Image, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { imageBlob, isAbort } from "@/services/api";
 import { useObjectUrl } from "@/hooks/useObjectUrl";
 import { useMotion } from "@/hooks/useMotion";
 import type { FieldValue, ScanResult, Side, SideOptions } from "@/types/scan";
 
 interface Props {
-  correctedPreview?: Blob | null;
+  correctedPreview: Blob | null;
   isPdf?: boolean;
   highlight?: FieldValue | null;
   original: string;
@@ -41,50 +33,30 @@ export function DocumentViewer({
   const motion = useMotion("highlight", highlight);
   const scanMotion = useMotion("scan", busy);
   const [variant, setVariant] = useState<"corrected" | "original">("corrected");
-  const [blob, setBlob] = useState<Blob | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const canvas = useRef<HTMLDivElement>(null);
-  const corrected = useObjectUrl(blob);
+  const corrected = useObjectUrl(result ? correctedPreview : null);
   const scanId = result?.scan_id;
   useEffect(() => {
-    setBlob(null);
-    setError(null);
     setZoom(1);
-    if (!scanId) {
-      setLoading(false);
-      return;
-    }
-    if (correctedPreview !== undefined) {
-      setBlob(correctedPreview);
-      setLoading(false);
-      return;
-    }
-    const controller = new AbortController();
-    setLoading(true);
-    void imageBlob(scanId, side, "corrected", controller.signal)
-      .then((value) => {
-        if (!controller.signal.aborted) setBlob(value);
-      })
-      .catch((error) => {
-        if (!isAbort(error))
-          setError(
-            error instanceof Error ? error.message : "Preview unavailable.",
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [scanId, side, correctedPreview]);
+  }, [scanId, side]);
   const showingCorrected = result && variant === "corrected" && corrected;
   const image = showingCorrected ? corrected : original;
   const metadata = result?.images.find((image) => image.side === side);
-  const boxes = highlight?.evidence.filter((item) => item.side === side && item.bounding_box
-      && (highlight.value_kind === "mrz" ? item.source === "mrz" : item.source === "visual"))
-    .map((item) => item.bounding_box!) ?? [];
-  useEffect(() => { if (highlight) setVariant("corrected"); }, [highlight]);
+  const boxes =
+    highlight?.evidence
+      .filter(
+        (item) =>
+          item.side === side &&
+          item.bounding_box &&
+          (highlight.value_kind === "mrz"
+            ? item.source === "mrz"
+            : item.source === "visual"),
+      )
+      .map((item) => item.bounding_box!) ?? [];
+  useEffect(() => {
+    if (highlight) setVariant("corrected");
+  }, [highlight]);
   return (
     <div className="viewer" ref={motion}>
       <div className="viewer-top">
@@ -119,46 +91,52 @@ export function DocumentViewer({
           style={{ width: `${zoom * 100}%`, minWidth: "100%" }}
         >
           {isPdf && !showingCorrected ? (
-            <p className="pdf-preview-note">PDF selected. Scan to render the page locally, then inspect the image or adjust its crop.</p>
-          ) : <div className="image-with-evidence"><img
-            src={image}
-            alt={
-              showingCorrected
-                ? "Corrected document"
-                : "Original document preview"
-            }
-            style={{
-              maxHeight:
-                "calc((var(--canvas-height) - 32px) * var(--preview-zoom))",
-              width: "100%",
-              transform: !showingCorrected
-                ? `rotate(${options.rotation}deg)`
-                : undefined,
-            }}
-          />
-          {showingCorrected && metadata && boxes.length > 0 && (
-            <svg className="evidence-overlay" viewBox={`0 0 ${metadata.width} ${metadata.height}`}
-              preserveAspectRatio="xMidYMid meet" aria-label="Selected field source location">
-              {boxes.map((box, index) => <polygon key={index} points={box.map((point) => point.join(",")).join(" ")} />)}
-            </svg>
-          )}</div>}
+            <p className="pdf-preview-note">
+              PDF selected. Scan to render the page locally, then inspect the
+              image or adjust its crop.
+            </p>
+          ) : (
+            <div className="image-with-evidence">
+              <img
+                src={image}
+                alt={
+                  showingCorrected
+                    ? "Corrected document"
+                    : "Original document preview"
+                }
+                style={{
+                  maxHeight:
+                    "calc((var(--canvas-height) - 32px) * var(--preview-zoom))",
+                  width: "100%",
+                  transform: !showingCorrected
+                    ? `rotate(${options.rotation}deg)`
+                    : undefined,
+                }}
+              />
+              {showingCorrected && metadata && boxes.length > 0 && (
+                <svg
+                  className="evidence-overlay"
+                  viewBox={`0 0 ${metadata.width} ${metadata.height}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  aria-label="Selected field source location"
+                >
+                  {boxes.map((box, index) => (
+                    <polygon
+                      key={index}
+                      points={box.map((point) => point.join(",")).join(" ")}
+                    />
+                  ))}
+                </svg>
+              )}
+            </div>
+          )}
         </div>
-        {loading && (
-          <span className="preview-loading">
-            <LoaderCircle size={16} className="spin" /> Loading corrected image
-          </span>
-        )}
         {busy && (
           <div className="scan-overlay" ref={scanMotion}>
             <span className="scan-line" style={{ animation: "none" }} />
           </div>
         )}
       </div>
-      {error && (
-        <p className="input-error" role="alert">
-          {error} Original preview shown.
-        </p>
-      )}
       <div className="viewer-toolbar">
         <div className="toolbar-group">
           <Button
@@ -199,7 +177,12 @@ export function DocumentViewer({
             <RotateCw size={16} />
             <span>Rotate</span>
           </Button>
-          <Button variant="ghost" size="sm" disabled={busy || isPdf} onClick={onCrop}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy || isPdf}
+            onClick={onCrop}
+          >
             <Crop size={16} />
             <span>Adjust crop</span>
           </Button>

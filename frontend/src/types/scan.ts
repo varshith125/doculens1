@@ -84,8 +84,6 @@ export interface ImageResult {
   rotation: number;
   quality: Record<string, number>;
   warnings: string[];
-  original_url: string;
-  corrected_url: string;
 }
 export interface ScanResult {
   checks?: Record<string, boolean | null>;
@@ -112,12 +110,19 @@ export type Stage =
   | "preparing_results"
   | "completed"
   | "failed";
+export interface Preview {
+  side: Side;
+  variant: "original" | "corrected";
+  jpeg_base64: string;
+}
 export interface ScanJob {
   scan_id: string;
   status: "queued" | "processing" | "completed" | "failed";
   stage: Stage;
   result: ScanResult | null;
   error: string | null;
+  /** Sent once with the final reply; the server keeps no copy afterwards. */
+  previews?: Preview[];
 }
 export interface Health {
   status: "ok" | "degraded";

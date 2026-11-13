@@ -374,6 +374,21 @@ def _parse_with_corrections(lines: list[str], *, document_number: str | None = N
                 positions.setdefault(row, []).append(start + continuation.start(1))
     confusions = {"O": "0", "I": "1", "L": "1", "B": "8", "S": "5", "Z": "2", "G": "6", "Q": "0"}
     corrections = []
+    # ICAO 9303 allows only letters or < in the issuing state, nationality, sex
+    # and name positions, so a digit there is a misread letter (0 for O, 5 for S).
+    letters = {"0": "O", "1": "I", "2": "Z", "5": "S", "6": "G", "8": "B"}
+    if original.format == "TD1":
+        alphabetic = {0: range(2, 5), 1: [7, 15, 16, 17], 2: range(len(interpreted[2]) if len(interpreted) > 2 else 0)}
+    else:
+        alphabetic = {0: range(2, len(interpreted[0])), 1: [10, 11, 12, 20]}
+    letter_fixes = 0
+    for row, indices in alphabetic.items():
+        for index in indices:
+            if row < len(interpreted) and index < len(interpreted[row]) and interpreted[row][index] in letters:
+                before = interpreted[row][index]
+                interpreted[row][index] = letters[before]
+                letter_fixes += 1
+                corrections.append(f"Line {row + 1}, position {index + 1}: {before} → {letters[before]} (letters only)")
     for row, indices in positions.items():
         for index in indices:
             before = interpreted[row][index]
@@ -400,7 +415,9 @@ def _parse_with_corrections(lines: list[str], *, document_number: str | None = N
                     corrections.append(
                         f"Line 2, position {index + 1}: {before} → {after} (corroborated by labeled printed number)"
                     )
-    if not 1 <= len(corrections) <= 4:
+    # Letter-only positions are fixed by the standard itself; the limit applies to
+    # the number of guessed digit substitutions.
+    if not corrections or len(corrections) - letter_fixes > 4:
         return original
     candidate = _parse_mrz(["".join(row) for row in interpreted])
     if not candidate.checksum_valid:

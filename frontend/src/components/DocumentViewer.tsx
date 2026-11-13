@@ -91,10 +91,19 @@ export function DocumentViewer({
           style={{ width: `${zoom * 100}%`, minWidth: "100%" }}
         >
           {isPdf && !showingCorrected ? (
-            <p className="pdf-preview-note">
-              PDF selected. Scan to render the page locally, then inspect the
-              image or adjust its crop.
-            </p>
+            // The browser's own PDF viewer shows the page before scanning; the
+            // scan then returns it as an image for highlighting and cropping.
+            <object
+              className="pdf-preview"
+              data={`${original}#toolbar=0&navpanes=0&view=Fit`}
+              type="application/pdf"
+              aria-label="PDF document preview"
+            >
+              <p className="pdf-preview-note">
+                This browser cannot display PDFs here. Scan the document to see
+                its page.
+              </p>
+            </object>
           ) : (
             <div className="image-with-evidence">
               <img

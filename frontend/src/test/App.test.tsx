@@ -158,7 +158,9 @@ describe("Document workflow", () => {
       target: { files: [pdf] },
     });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByText(/PDF selected/)).toBeInTheDocument();
+    const preview = screen.getByLabelText("PDF document preview");
+    expect(preview.tagName).toBe("OBJECT");
+    expect(preview.getAttribute("data")).toMatch(/^blob:test-document#/);
     fireEvent.click(screen.getByRole("button", { name: "Scan document" }));
     expect(await screen.findByText("SPECIMEN")).toBeInTheDocument();
     expect(api.startScan).toHaveBeenCalledWith(

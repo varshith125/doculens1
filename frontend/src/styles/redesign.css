@@ -752,6 +752,13 @@ h1 {
   border-radius: 5px;
   font-size: 11px;
 }
+.pdf-preview {
+  display: block;
+  width: 100%;
+  height: calc(var(--canvas-height) - 2px);
+  border: 0;
+  background: #fff;
+}
 .pdf-preview-note {
   padding: 20px;
   font-size: 13px;

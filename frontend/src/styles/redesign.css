@@ -33,7 +33,7 @@
   -webkit-font-smoothing: antialiased;
 }
 body {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.55;
 }
 ::selection {
@@ -80,7 +80,7 @@ body {
 .brand-name small {
   display: block;
   margin-top: 3px;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 1.55px;
   color: #aab6c6;
@@ -91,7 +91,7 @@ body {
   margin-top: 50px;
 }
 .nav-label {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1.6px;
   color: #a3afbf;
   padding: 0 12px 12px;
@@ -103,7 +103,7 @@ body {
   gap: 10px;
   text-align: left;
   color: #bbc5d3;
-  font-size: 13px;
+  font-size: 15px;
   min-height: 44px;
   padding: 11px 12px;
   border-radius: 7px;
@@ -136,11 +136,11 @@ body {
 .sidebar-note strong {
   display: block;
   color: #dbe3ed;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
 }
 .sidebar-note p {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
   margin-top: 8px;
 }
@@ -150,7 +150,7 @@ body {
   margin-top: 25px;
   padding-top: 18px;
   border-top: 1px solid #3c4757;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.5px;
 }
 .workspace-topbar {
@@ -170,7 +170,7 @@ body {
   display: flex;
   align-items: center;
   gap: 13px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .workspace-topbar strong {
@@ -182,7 +182,7 @@ body {
   align-items: center;
   gap: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
 }
 main,
@@ -196,7 +196,7 @@ main,
 }
 .eyebrow {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 1.7px;
   color: var(--muted);
@@ -213,7 +213,7 @@ h1 {
 .hero-copy > p {
   margin-top: 12px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   max-width: 690px;
 }
 .hero-features {
@@ -222,7 +222,7 @@ h1 {
   gap: 22px;
   margin-top: 19px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 .hero-features > span {
   display: flex;
@@ -274,14 +274,14 @@ h1 {
 }
 .workflow-steps strong {
   display: block;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink-2);
 }
 .workflow-steps li > div > span {
   display: block;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
 }
 .workflow-chevron {
@@ -327,7 +327,7 @@ h1 {
   letter-spacing: -0.3px;
 }
 .workspace-title p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   margin-top: 3px;
 }
@@ -335,7 +335,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   white-space: nowrap;
   padding: 6px 9px;
@@ -386,7 +386,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
 .panel-heading h3 svg {
@@ -394,7 +394,7 @@ h1 {
 }
 .panel-label {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1px;
   color: var(--faint);
   white-space: nowrap;
@@ -408,7 +408,7 @@ h1 {
   padding: 10px 17px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
   white-space: nowrap;
   transition:
@@ -457,7 +457,7 @@ h1 {
 .button-sm {
   min-height: 34px;
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .button-icon {
   width: 34px;
@@ -497,12 +497,12 @@ h1 {
   max-width: 275px;
   margin-bottom: 22px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
 }
 .format-hint {
   margin-top: 16px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .format-hint > span {
@@ -531,7 +531,7 @@ h1 {
   margin-top: 3px;
 }
 .upload-tip p {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
   color: var(--ink-2);
 }
@@ -558,7 +558,7 @@ h1 {
   margin-bottom: 17px;
 }
 .results-empty > .eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.4px;
 }
 .results-empty h3 {
@@ -569,7 +569,7 @@ h1 {
   font-weight: 550;
 }
 .results-empty > p {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
   color: var(--muted);
   max-width: 320px;
@@ -594,7 +594,7 @@ h1 {
   border-top: 1px solid var(--line);
 }
 .field-preview span {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .field-preview i {
@@ -612,7 +612,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: auto;
   padding-top: 8px;
@@ -647,14 +647,14 @@ h1 {
   gap: 3px;
 }
 .file-info strong {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
 }
 .file-info span {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .viewer-top {
@@ -678,7 +678,7 @@ h1 {
   min-height: 32px;
   padding: 6px 12px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
 }
 .segmented [aria-pressed="true"],
@@ -693,7 +693,7 @@ h1 {
 }
 .image-side,
 .zoom-label {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .image-canvas {
@@ -750,7 +750,7 @@ h1 {
   background: white;
   padding: 7px 10px;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .pdf-preview {
   display: block;
@@ -761,7 +761,7 @@ h1 {
 }
 .pdf-preview-note {
   padding: 20px;
-  font-size: 13px;
+  font-size: 15px;
 }
 .viewer-toolbar {
   display: flex;
@@ -787,7 +787,7 @@ h1 {
   gap: 6px;
   margin-top: 10px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 .scan-settings {
   margin-top: 18px;
@@ -796,7 +796,7 @@ h1 {
 .scan-settings > summary {
   cursor: pointer;
   padding: 14px 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
 }
 .scan-settings[open] > .upload-wrap {
@@ -812,7 +812,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   min-width: 0;
 }
@@ -825,7 +825,7 @@ h1 {
   border-radius: 6px;
   background: white;
   color: var(--ink-2);
-  font-size: 11px;
+  font-size: 13px;
 }
 .scan-controls > .button {
   grid-column: 1 / -1;
@@ -881,7 +881,7 @@ h1 {
 }
 .progress-panel > p {
   max-width: 340px;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--muted);
 }
 .processing-steps {
@@ -900,7 +900,7 @@ h1 {
   border-radius: 7px;
   padding: 12px 14px;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .processing-steps .current {
@@ -920,7 +920,7 @@ h1 {
   border-radius: 50%;
 }
 .progress-panel > .processing-note {
-  font-size: 10px;
+  font-size: 12px;
 }
 /* Review and export */
 .results-content {
@@ -949,7 +949,7 @@ h1 {
   background: var(--brand-soft);
 }
 .result-summary .eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.1px;
 }
 .result-summary h3 {
@@ -959,7 +959,7 @@ h1 {
   margin: 2px 0;
 }
 .result-summary p {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -976,12 +976,12 @@ h1 {
 .field-count small {
   display: block;
   margin-top: 7px;
-  font-size: 9px;
+  font-size: 11px;
   color: var(--muted);
 }
 .extracted-text-note {
   margin-top: 16px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.8;
 }
@@ -992,7 +992,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink-2);
   padding-bottom: 11px;
@@ -1037,12 +1037,12 @@ h1 {
   min-height: 20px;
 }
 .field-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 550;
   color: var(--muted);
 }
 .field-edited {
-  font-size: 9px;
+  font-size: 11px;
   padding: 1px 5px;
   border-radius: 3px;
   color: var(--brand);
@@ -1062,7 +1062,7 @@ h1 {
   margin-top: 7px;
 }
 .field-value-line strong {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -1073,7 +1073,7 @@ h1 {
 }
 .field-reason {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   line-height: 1.8;
   overflow-wrap: anywhere;
@@ -1088,7 +1088,7 @@ h1 {
   width: fit-content;
   list-style: none;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--brand);
 }
 .field-notes > summary::-webkit-details-marker {
@@ -1114,7 +1114,7 @@ h1 {
 .field-edit label {
   width: 100%;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .field-edit input {
   display: block;
@@ -1127,10 +1127,10 @@ h1 {
   border-radius: 5px;
   color: var(--ink);
   background: white;
-  font-size: 14px;
+  font-size: 16px;
 }
 .field-edit > p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--red);
 }
 .visible-mrz {
@@ -1139,12 +1139,12 @@ h1 {
   border-top: 1px solid var(--line);
 }
 .visible-mrz h4 {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   margin-bottom: 12px;
 }
 .visible-mrz > p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .mrz-text {
@@ -1173,7 +1173,7 @@ h1 {
   justify-content: space-between;
   gap: 8px;
   padding: 14px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
   cursor: pointer;
   list-style: none;
@@ -1190,7 +1190,7 @@ h1 {
 .technical-body {
   padding: 16px;
   border-top: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.8;
   overflow-wrap: anywhere;
@@ -1210,13 +1210,13 @@ h1 {
   padding-left: 18px;
 }
 .technical-body .mrz-text {
-  font-size: 11px;
+  font-size: 13px;
 }
 .field-evidence {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 14px;
 }
 .field-evidence li > span,
 .field-evidence > span {
@@ -1232,7 +1232,7 @@ h1 {
   flex-wrap: wrap;
   gap: 6px 12px;
   margin-top: 12px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .raw-transcript {
   white-space: pre-wrap;
@@ -1264,7 +1264,7 @@ h1 {
 .action-notice,
 .validation-note {
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -1283,12 +1283,12 @@ h1 {
   font-size: 15px;
 }
 .no-fields p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   margin-top: 8px;
 }
 .status {
-  font-size: 10px;
+  font-size: 12px;
   padding: 3px 6px;
   border-radius: 4px;
   color: var(--muted);
@@ -1308,7 +1308,7 @@ h1 {
 /* Messages, help and footer */
 .input-error {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--red);
 }
 .scan-error,
@@ -1322,7 +1322,7 @@ h1 {
   border-radius: 7px;
   background: var(--amber-soft);
   color: var(--amber);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
 }
 .service-warning {
@@ -1367,7 +1367,7 @@ h1 {
   font-weight: 600;
 }
 .help-panel p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.9;
   margin-top: 12px;
@@ -1383,7 +1383,7 @@ h1 {
   border-top: 1px solid var(--line);
   background: var(--surface-2);
   border-radius: 0 0 var(--radius) var(--radius);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .workspace-footer > span,
@@ -1395,7 +1395,7 @@ h1 {
 .workspace-footer > button {
   color: var(--brand);
   padding: 5px 0;
-  font-size: 11px;
+  font-size: 13px;
 }
 .features-strip {
   display: grid;
@@ -1417,13 +1417,13 @@ h1 {
   color: var(--muted);
 }
 .features-strip h3 {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-2);
   margin-bottom: 4px;
 }
 .features-strip p {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.8;
   color: var(--muted);
 }
@@ -1435,14 +1435,14 @@ h1 {
   padding-block: 20px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 .footer-brand {
   display: flex;
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
 }
 /* Crop dialog */
 .crop-dialog {
@@ -1473,7 +1473,7 @@ h1 {
   margin-top: 7px;
 }
 .dialog-description {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.8;
   margin: 16px 0 22px;
@@ -1513,7 +1513,7 @@ h1 {
   border-radius: 50%;
   background: var(--brand);
   color: white;
-  font-size: 11px;
+  font-size: 13px;
   box-shadow: 0 2px 6px #20293630;
 }
 .dialog-footer {
@@ -1552,14 +1552,14 @@ h1 {
     font-size: 20px;
   }
   .brand-name small {
-    font-size: 7px;
+    font-size: 11px;
   }
   .workflow-steps li {
     padding: 16px 13px;
     gap: 9px;
   }
   .workflow-steps li > div > span {
-    font-size: 10px;
+    font-size: 12px;
   }
   .workflow-chevron {
     display: none;
@@ -1608,7 +1608,7 @@ h1 {
   }
   .site-header nav a,
   .site-header nav button {
-    font-size: 12px;
+    font-size: 14px;
   }
   .workspace-topbar {
     min-height: 54px;
@@ -1660,11 +1660,11 @@ h1 {
     padding-inline: 18px;
   }
   .workspace-topbar > div {
-    font-size: 11px;
+    font-size: 13px;
     gap: 8px;
   }
   .privacy-chip {
-    font-size: 10px;
+    font-size: 12px;
   }
   .hero {
     padding: 26px 0 22px;
@@ -1674,12 +1674,12 @@ h1 {
     max-width: 460px;
   }
   .hero-copy > p {
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.8;
   }
   .hero-features {
     gap: 10px 16px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .workflow-steps {
     margin-bottom: 20px;
@@ -1691,7 +1691,7 @@ h1 {
     padding: 13px 11px;
   }
   .workflow-steps strong {
-    font-size: 11px;
+    font-size: 13px;
   }
   .workflow-steps li > div > span {
     display: none;
@@ -1699,7 +1699,7 @@ h1 {
   .workflow-number {
     width: 27px;
     height: 27px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .workspace-heading {
     padding: 18px;
@@ -1710,11 +1710,11 @@ h1 {
     font-size: 15px;
   }
   .workspace-title p {
-    font-size: 11px;
+    font-size: 13px;
   }
   .engine-state {
     margin-left: 52px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .workspace-grid {
     grid-template-columns: 1fr;
@@ -1766,7 +1766,7 @@ h1 {
     border-bottom: 1px solid var(--line);
     background: var(--brand-soft);
     color: var(--brand);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 550;
   }
   .has-results .document-panel {
@@ -1787,7 +1787,7 @@ h1 {
   }
   .workspace-footer {
     padding: 12px 18px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .features-strip {
     grid-template-columns: 1fr;
@@ -1795,13 +1795,13 @@ h1 {
     padding: 24px 0;
   }
   .features-strip h3 {
-    font-size: 12px;
+    font-size: 14px;
   }
   .features-strip p {
-    font-size: 11px;
+    font-size: 13px;
   }
   .site-footer {
-    font-size: 10px;
+    font-size: 12px;
   }
   .site-footer > span:last-child {
     display: none;
@@ -1841,11 +1841,11 @@ h1 {
     gap: 10px;
   }
   .hero-features > span {
-    font-size: 9px;
+    font-size: 11px;
     gap: 4px;
   }
   .workflow-steps strong {
-    font-size: 10px;
+    font-size: 12px;
   }
   .workspace-heading {
     padding: 16px;
@@ -1854,7 +1854,7 @@ h1 {
     gap: 10px;
   }
   .workspace-title p {
-    font-size: 11px;
+    font-size: 13px;
   }
   .workspace-number {
     width: 34px;
@@ -1868,10 +1868,10 @@ h1 {
     gap: 6px;
   }
   .panel-heading h3 {
-    font-size: 12px;
+    font-size: 14px;
   }
   .panel-label {
-    font-size: 8px;
+    font-size: 11px;
   }
   .upload-empty,
   .document-loaded,
@@ -1905,13 +1905,13 @@ h1 {
     font-size: 19px;
   }
   .result-summary .eyebrow {
-    font-size: 8px;
+    font-size: 11px;
   }
   .field-count {
     font-size: 25px;
   }
   .field-count small {
-    font-size: 8px;
+    font-size: 11px;
   }
   .result-icon {
     width: 34px;
